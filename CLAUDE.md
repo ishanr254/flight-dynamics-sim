@@ -80,6 +80,21 @@ Match whatever convention the benchmark case-study data and the existing AVL
 MATLAB wrapper already use, to minimize conversion risk — don't invent a new
 convention from scratch.
 
+## Working style
+
+- For larger or delicate work (a new solver module, anything touching the R2
+  zero-edit constraint, architecture changes) — plan first: lay out the approach
+  and alternatives, get it approved, then implement. Small well-scoped fixes don't
+  need this ceremony.
+- Don't commit automatically after every change. Only commit when explicitly
+  asked, once the change has actually been reviewed/tested — not mid-task.
+- Keep the repo clean: one-off debug scripts and scratch files created while
+  working shouldn't linger past the task that needed them. Anything worth keeping
+  goes where it actually belongs (`docs/decisions/` for real decisions, `tests/`
+  for real tests) rather than sitting loose in the tree.
+- For visualizer/UI changes, a quick throwaway mockup before the full build is a
+  good way to align on behavior first — cheaper to iterate on than the real thing.
+
 ## Session habits
 
 - Update the Status section below and add a dated file to `docs/decisions/` before
