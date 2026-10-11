@@ -31,8 +31,11 @@ src/
   simulate/     # time-domain integration (scipy.integrate.solve_ivp)
   viz/          # exports time-history JSON for the visualizer
   verify/       # benchmark comparison, reference cases (R3-R5)
+  analyze.py    # generic entry point: modal analysis of any aircraft file
+cases/          # aircraft-specific scenarios and figures (never imported by src/)
 data/
-  aircraft/     # per-aircraft data files
+  aircraft/     # per-aircraft data files (TOML)
+  reference/    # benchmark reference values, with how each was obtained
 tests/
 docs/
   requirements.md
@@ -46,10 +49,24 @@ of module files (separation of concerns).
 Python 3.12, venv, `python3` not `python` — same convention as the
 `sizing-scoring-26-27` repo.
 
+**Standalone:** the tool must run for anyone with Python 3.12 and
+`pip install -r requirements.txt`. No run-time dependence on MATLAB, XFLR5, AVL, or
+sibling repos — copy code/data in, never import it from where it lives.
+
+## Running
+
+```
+python3 -m venv venv && ./venv/bin/pip install -r requirements.txt
+./venv/bin/pytest -q
+./venv/bin/python -m src.analyze data/aircraft/cs7_transport.toml   # any aircraft file
+./venv/bin/python -m cases.cs7_lateral      # CS7 benchmark table + figures in output/
+```
+
 ## Visualization plan
 
-Extend the existing `flight-dynamics-visual` repo (sibling repo, same GitHub
-folder) rather than building a new renderer. It's a single static `index.html` —
+Start from the existing `flight-dynamics-visual` page (sibling repo, same GitHub
+folder) rather than building a new renderer — copied into this repo when that phase
+starts, per the standalone rule above. It's a single static `index.html` —
 vanilla JS, Three.js r128 via CDN, no build step, no server. It already has: a
 generic Three.js scene, procedural low-poly aircraft mesh, chase/orbit camera, a
 trail buffer, an HTML/CSS HUD, and a hand-drawn 2D canvas attitude indicator — all
@@ -70,15 +87,19 @@ handful of low-poly primitives and one polyline trail — WebGL/Three.js handles
 more complex scenes than this at 60fps easily. Don't spend time on a performance
 investigation here unless something concrete shows otherwise.
 
-## Conventions — not yet locked
+## Conventions
 
-Axis system (body vs. stability), positive sign conventions, state ordering
-(velocity-component vs. aerodynamic-angle form), and non-dimensionalization (the
-MAE 4070/5070 course convention uses ℓ/V for rotary derivatives, not ℓ/2V — a
-known factor-of-2 trap) all need to be pinned down before writing dynamics code.
-Match whatever convention the benchmark case-study data and the existing AVL
-MATLAB wrapper already use, to minimize conversion risk — don't invent a new
-convention from scratch.
+**Lateral — locked** (2026-10-11, `docs/decisions/`): MAE 4070/5070 Ch. 9 eq. (5).
+State `[beta, r, p, phi]`, controls `[delta_l, delta_n]`, non-dimensional coefficients,
+one reference length `l`, rate derivatives per `p*l/V` and `r*l/V` (ℓ/V, not ℓ/2V or
+b/2V — the factor-of-2 trap), inertias `A`/`C` with `E` neglected, SI and radians.
+
+**Longitudinal — not locked.** Ch. 5 fixes state `[V, gamma, alpha, q, h]` and controls
+`[delta_x, delta_m]`; the remaining matrix entries and a complete benchmark data set are
+still missing. Match the course notes; don't invent a convention.
+
+Data from XFLR5/AVL uses b/2V and c/2V and body-axis forms: it must be converted in
+the aircraft-data layer, never inside the solver.
 
 ## Working style
 
@@ -105,5 +126,13 @@ convention from scratch.
 
 ## Status
 
-Repo scaffolded 2026-09-09. No implementation yet. Next: lock conventions once
-benchmark aircraft case-study data (CS4–CS7) is available.
+2026-10-11: lateral-directional pipeline works end to end on the CS7 transport
+(loader + validation, state-space, modal analysis, time simulation, reference
+comparison, figures); 33 tests pass. Matches CS7's precisely stated values to <1%.
+
+Open, in order:
+1. DF1 needs stability derivatives (XFLR5 stability log) and an XFLR5→course-convention
+   converter; DF1's large `Ixz` makes the `E = 0` assumption questionable.
+2. Longitudinal model: needs the Concorde data sheet for CS5 and the full A matrix.
+3. Scope question for the planning chat: CS7's long-time figures need `sin(phi)` in the
+   gravity term, which a strictly linear tool does not have.

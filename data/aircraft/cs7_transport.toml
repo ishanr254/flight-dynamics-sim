@@ -1,0 +1,45 @@
+# Long-haul, 4-engine, 200-passenger civil transport.
+# Source: MAE 4070/5070 Case Study 7 (Lateral Dynamics), section 2 "Available data"
+# (docs/courseNotes/CS7_Lateral_Dynamics_SOL.pdf, p.1). Values transcribed as given.
+
+name = "CS7 civil transport"
+source = "MAE 4070/5070 Case Study 7, section 2"
+
+[mass]
+m = 1.2e5          # kg
+
+[reference]
+S = 240.0          # m^2, reference area
+l = 6.5            # m, reference length used for ALL moment coefficients and rate derivatives
+
+[inertia]
+A = 5.88e6         # kg m^2, roll inertia about x_b
+C = 11.1e6         # kg m^2, yaw inertia about z_b
+E = 0.0            # kg m^2, xz product of inertia (case study assumes zero)
+
+# Rate derivatives are per unit (p*l/V), (r*l/V) -- the course l/V convention, not l/2V.
+[lateral]
+CY_beta = -0.65
+CY_p = 0.0
+CY_r = 0.0
+CY_dl = 0.0
+CY_dn = 0.19
+
+Cl_beta = -0.92
+Cl_p = -18.6
+Cl_r = 5.89
+Cl_dl = -0.56
+Cl_dn = 0.13
+
+Cn_beta = 0.8175
+Cn_p = -1.37
+Cn_r = -7.18
+Cn_dl = -0.02
+Cn_dn = -0.56
+
+# Straight, level flight at low velocity and altitude (CS7 section 1).
+[condition]
+V = 125.0          # m/s
+rho = 1.225        # kg/m^3, sea level (h ~ 0)
+alpha = 0.0        # rad, not given in CS7; lateral notes assume theta = alpha = 0
+theta = 0.0        # rad

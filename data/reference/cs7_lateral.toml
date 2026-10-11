@@ -1,0 +1,59 @@
+# Reference values quoted in the CS7 solutions (docs/courseNotes/CS7_Lateral_Dynamics_SOL.pdf).
+# "kind" says how the case study obtained the number, which bounds how closely a full
+# 4x4 linear model should be expected to match it.
+
+aircraft = "data/aircraft/cs7_transport.toml"
+
+[[reference]]
+metric = "roll_time_constant_s"
+value = 0.4
+kind = "analytical, decoupled roll mode"
+source = "CS7 p.1, Q1(a)"
+
+[[reference]]
+metric = "roll_rate_steady_deg_s"
+value = 2.9
+kind = "analytical, decoupled roll mode, delta_l = -5 deg"
+source = "CS7 p.1, Q1(a)"
+
+[[reference]]
+metric = "dutch_roll_period_s"
+value = 6.0
+kind = "read from graph and theory, 'around 6 s'"
+source = "CS7 p.2, Q1(b)"
+
+[[reference]]
+metric = "dutch_roll_damping_ratio"
+value = 0.3
+kind = "quoted as 'around 0.3'"
+source = "CS7 p.4, Q3"
+
+[[reference]]
+metric = "spiral_time_constant_s"
+value = 700.0
+kind = "quoted as 'around -700 s'; magnitude compared, the nominal spiral is stable per Q4"
+source = "CS7 p.4, Q3"
+
+[[reference]]
+metric = "spiral_neutral_Cn_beta_factor"
+value = 1.37
+kind = "analytical criterion Cl_beta*Cn_r = Cl_r*Cn_beta"
+source = "CS7 p.4-5, Q4(a)"
+
+[[reference]]
+metric = "dutch_roll_damping_ratio_with_yaw_damper"
+value = 0.7
+kind = "closed loop, delta_n = 1.8 r"
+source = "CS7 p.4, Q3"
+
+[[reference]]
+metric = "spiral_time_constant_with_yaw_damper_s"
+value = 17.0
+kind = "closed loop, delta_n = 1.8 r"
+source = "CS7 p.4, Q3"
+
+[[reference]]
+metric = "spiral_phi_at_200s_deg"
+value = 6.0
+kind = "read from figure, phi_0 = 30 deg, nominal curve"
+source = "CS7 p.5, Q4 figure"
