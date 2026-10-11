@@ -17,6 +17,8 @@ INPUTS = ("delta_l", "delta_n")
 
 def lateral_state_space(aircraft, condition):
     ac, c, fc = aircraft, aircraft.lateral, condition
+    if c is None:
+        raise ValueError(f"{ac.name}: the aircraft file has no [lateral] section")
     qS = 0.5 * fc.rho * fc.V ** 2 * ac.S
     rate = ac.l / fc.V  # rate derivatives are per (p*l/V), (r*l/V)
     force = qS / (ac.m * fc.V)

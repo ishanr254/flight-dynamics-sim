@@ -55,9 +55,11 @@ def test_spread_changes_inertia_only(log, tmp_path):
     plain.write_text(aircraft_toml(log, 0.307, "test"))
     with_spread.write_text(aircraft_toml(log, 0.307, "test", spread, SPREAD))
     (a, fc_a), (b, fc_b) = load_aircraft(plain), load_aircraft(with_spread)
-    assert (a.m, a.S, a.l, a.lateral, fc_a) == (b.m, b.S, b.l, b.lateral, fc_b)
+    assert (a.m, a.S, a.l, a.lateral, a.longitudinal, fc_a) == (
+        b.m, b.S, b.l, b.lateral, b.longitudinal, fc_b)
     assert b.A > a.A and b.C > a.C
-    assert (b.A, b.C, b.E) == pytest.approx(inertia(log, spread))
+    assert b.B > a.B
+    assert (b.A, b.B, b.C, b.E) == pytest.approx(inertia(log, spread))
 
 
 def test_distributed_mass_slows_the_roll_mode():

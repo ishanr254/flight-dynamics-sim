@@ -1,8 +1,8 @@
 """DF1 derivatives from geometry vs XFLR5: python3 -m cases.df1_vlm
 
 For each mission, runs the built-in vortex-lattice solver on data/geometry/df1_m*.toml and
-compares (1) every stability derivative with the XFLR5 log and (2) the lateral modes that
-follow from them with XFLR5's eigenvalues. Inertia is XFLR5's in both, so differences are
+compares (1) every stability derivative with the XFLR5 log and (2) the longitudinal and
+lateral modes that follow from them with XFLR5's eigenvalues. Inertia is XFLR5's in both, so differences are
 aerodynamic only.
 """
 
@@ -12,8 +12,8 @@ from src.aero.derivatives import stability_derivatives
 from src.aero.geometry import load_geometry
 from src.aircraft import load_aircraft
 from src.aircraft.xflr5 import aircraft_toml, log_derivatives
-from src.dynamics import lateral_state_space
-from src.verify import compare, format_table, modal_metrics
+from src.dynamics import lateral_state_space, longitudinal_state_space
+from src.verify import compare, format_table, longitudinal_modal_metrics, modal_metrics
 
 MISSIONS = ("m1", "m2", "m3")
 TRIM = ("alpha_trim_deg", "V", "neutral_point")
@@ -56,9 +56,13 @@ def main():
 
         Path(vlm_aircraft_path(mission)).write_text(aircraft_toml(
             computed, geometry.c, geometry_path(mission), generator="src.aero.derive"))
-        ss = lateral_state_space(*load_aircraft(vlm_aircraft_path(mission)))
+        aircraft, condition = load_aircraft(vlm_aircraft_path(mission))
+        print("\nLongitudinal modes from the lattice derivatives, against XFLR5's eigenvalues:")
+        print(format_table(compare(
+            longitudinal_modal_metrics(longitudinal_state_space(aircraft, condition)),
+            f"data/reference/df1_{mission}_longitudinal.toml")))
         print("\nLateral modes from the lattice derivatives, against XFLR5's eigenvalues:")
-        print(format_table(compare(modal_metrics(ss),
+        print(format_table(compare(modal_metrics(lateral_state_space(aircraft, condition)),
                                    f"data/reference/df1_{mission}_lateral.toml")))
         print()
 

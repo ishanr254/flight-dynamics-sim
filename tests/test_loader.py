@@ -64,3 +64,40 @@ def test_non_numeric_value_is_rejected(tmp_path):
     path = write_variant(tmp_path, r"^V = .*$", 'V = "125 m/s"')
     with pytest.raises(AircraftDataError, match="'V' must be a number"):
         load_aircraft(path)
+
+
+def test_lateral_only_file_has_no_longitudinal_model():
+    aircraft, _ = load_aircraft(CS7)
+    assert aircraft.longitudinal is None and aircraft.B is None
+    assert aircraft.lateral is not None
+
+
+def test_file_with_both_motions_loads_both():
+    aircraft, _ = load_aircraft("data/aircraft/df1_m1.toml")
+    assert aircraft.lateral is not None and aircraft.longitudinal is not None
+    assert aircraft.B == 0.1831
+
+
+def test_longitudinal_section_needs_pitch_inertia(tmp_path):
+    text = Path("data/aircraft/df1_m1.toml").read_text()
+    path = tmp_path / "no_B.toml"
+    path.write_text(re.sub(r"^B = .*$", "", text, flags=re.MULTILINE))
+    with pytest.raises(AircraftDataError, match=r"'B' is required when \[longitudinal\]"):
+        load_aircraft(path)
+
+
+def test_longitudinal_only_file_loads(tmp_path):
+    text = Path("data/aircraft/df1_m1.toml").read_text()
+    start, end = text.index("[lateral]"), text.index("# Speed derivatives")
+    path = tmp_path / "longitudinal_only.toml"
+    path.write_text(text[:start] + text[end:])
+    aircraft, _ = load_aircraft(path)
+    assert aircraft.lateral is None and aircraft.longitudinal is not None
+
+
+def test_file_with_no_motion_section_is_rejected(tmp_path):
+    text = CS7.read_text()
+    path = tmp_path / "nothing.toml"
+    path.write_text(text[:text.index("# Rate derivatives")] + text[text.index("# Straight"):])
+    with pytest.raises(AircraftDataError, match="nothing to analyse"):
+        load_aircraft(path)

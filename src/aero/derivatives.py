@@ -89,7 +89,7 @@ def stability_derivatives(geometry, n_chord=10, n_span=24):
         "alpha_trim_deg": math.degrees(alpha), "V": U, "CL": CL, "CDi": CDi,
         "neutral_point": g.mass.cg[0] - d["Cma"] / d["CLa"] * g.c,
         "mass": g.mass.m, "rho": g.rho, "S": g.S, "b": g.b, "c": g.c,
-        "Ibxx": g.mass.Ixx, "Ibzz": g.mass.Izz, "Ibxz": g.mass.Ixz,
+        "Ibxx": g.mass.Ixx, "Ibyy": g.mass.Iyy, "Ibzz": g.mass.Izz, "Ibxz": g.mass.Ixz,
         "Isxx": Isxx, "Iszz": Iszz, "Isxz": Isxz,
     })
     return d

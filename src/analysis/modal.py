@@ -72,3 +72,12 @@ def name_lateral_modes(mode_list):
     if len(oscillatory) != 1 or len(aperiodic) != 2:
         return {f"mode_{i + 1}": m for i, m in enumerate(mode_list)}
     return {"roll": aperiodic[0], "dutch_roll": oscillatory[0], "spiral": aperiodic[1]}
+
+
+def name_longitudinal_modes(mode_list):
+    """Label short period (faster pair) and phugoid (slower pair) when both oscillate."""
+    oscillatory = sorted((m for m in mode_list if m.oscillatory),
+                         key=lambda m: -abs(m.eigenvalue))
+    if len(oscillatory) != 2 or len(mode_list) != 2:
+        return {f"mode_{i + 1}": m for i, m in enumerate(mode_list)}
+    return {"short_period": oscillatory[0], "phugoid": oscillatory[1]}

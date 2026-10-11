@@ -1,12 +1,16 @@
-"""Modal analysis of any aircraft data file: python3 -m src.analyze <aircraft.toml>"""
+"""Modal analysis of any aircraft data file: python3 -m src.analyze <aircraft.toml>
+
+Prints the state matrices and natural modes for whichever of the lateral and longitudinal
+sections the file contains.
+"""
 
 import sys
 
 import numpy as np
 
 from .aircraft import AircraftDataError, load_aircraft
-from .analysis import modes, name_lateral_modes
-from .dynamics import lateral_state_space
+from .analysis import modes, name_lateral_modes, name_longitudinal_modes
+from .dynamics import lateral_state_space, longitudinal_state_space
 
 
 def format_modes(named):
@@ -34,14 +38,20 @@ def main(argv=None):
         print(exc, file=sys.stderr)
         return 1
 
-    ss = lateral_state_space(aircraft, condition)
     np.set_printoptions(precision=5, suppress=True, linewidth=120)
     print(f"{aircraft.name}  ({aircraft.source})")
     print(f"V = {condition.V:g} m/s, rho = {condition.rho:g} kg/m^3, "
-          f"alpha = {condition.alpha:g} rad, theta = {condition.theta:g} rad\n")
-    print(f"Lateral A, states {ss.states}:\n{ss.A}\n")
-    print(f"Lateral B, inputs {ss.inputs}:\n{ss.B}\n")
-    print(format_modes(name_lateral_modes(modes(ss.A))))
+          f"alpha = {condition.alpha:g} rad, theta = {condition.theta:g} rad")
+    sections = (("Longitudinal", aircraft.longitudinal, longitudinal_state_space,
+                 name_longitudinal_modes),
+                ("Lateral", aircraft.lateral, lateral_state_space, name_lateral_modes))
+    for title, present, build, name_modes in sections:
+        if present is None:
+            continue
+        ss = build(aircraft, condition)
+        print(f"\n{title} A, states {ss.states}:\n{ss.A}\n")
+        print(f"{title} B, inputs {ss.inputs}:\n{ss.B}\n")
+        print(format_modes(name_modes(modes(ss.A))))
     return 0
 
 

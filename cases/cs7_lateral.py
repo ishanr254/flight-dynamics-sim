@@ -53,12 +53,17 @@ def computed_metrics(aircraft, condition):
 
 
 def plot_responses(runs, states, title, path):
-    """runs: list of (label, Response, linestyle)."""
+    """runs: list of (label, Response, linestyle); states: list of (name, unit).
+
+    Units starting with "deg" are converted from radians; anything else is plotted as is.
+    """
     fig, axes = plt.subplots(len(states), 1, figsize=(8, 2.4 * len(states)), sharex=True,
                              squeeze=False)
     for ax, (state, unit) in zip(axes[:, 0], states):
         for label, response, style in runs:
-            ax.plot(response.t, np.degrees(response[state]), style, label=label)
+            values = response[state]
+            ax.plot(response.t, np.degrees(values) if unit.startswith("deg") else values,
+                    style, label=label)
         ax.set_ylabel(f"{state} ({unit})")
         ax.grid(alpha=0.3)
     axes[0, 0].set_title(title)

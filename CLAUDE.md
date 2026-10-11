@@ -64,6 +64,7 @@ python3 -m venv venv && ./venv/bin/pip install -r requirements.txt
 ./venv/bin/python -m src.analyze data/aircraft/cs7_transport.toml   # any aircraft file
 ./venv/bin/python -m cases.cs7_lateral      # CS7 benchmark table + figures in output/
 ./venv/bin/python -m cases.df1_lateral      # DF1 (3 missions) vs XFLR5 eigenvalues
+./venv/bin/python -m cases.df1_longitudinal # DF1 short period and phugoid vs XFLR5
 ./venv/bin/python -m src.aircraft.xflr5 LOG --chord C --aircraft OUT.toml  # XFLR5 log -> aircraft file
 # add --spread data/aircraft/df1_mass_distribution.toml for the corrected-inertia version
 ./venv/bin/python -m src.aero.derive data/geometry/df1_m1.toml --aircraft OUT.toml  # geometry -> derivatives
@@ -102,9 +103,14 @@ State `[beta, r, p, phi]`, controls `[delta_l, delta_n]`, non-dimensional coeffi
 one reference length `l`, rate derivatives per `p*l/V` and `r*l/V` (ℓ/V, not ℓ/2V or
 b/2V — the factor-of-2 trap), inertias `A`/`C`/`E` (the notes drop `E`; the solver keeps it), SI and radians.
 
-**Longitudinal — not locked.** Ch. 5 fixes state `[V, gamma, alpha, q, h]` and controls
-`[delta_x, delta_m]`; the remaining matrix entries and a complete benchmark data set are
-still missing. Match the course notes; don't invent a convention.
+**Longitudinal — locked** (2026-10-11, `docs/decisions/`): four-state small-perturbation
+form, state `[u, alpha, q, theta]`, controls `[delta_x, delta_m]` (zeros until phase 3),
+stability axes, coefficients non-dimensionalized with the same single `l` and ℓ/V rates.
+No alpha-dot derivatives. The five-state Ch. 5 course form (altitude, thrust model) is
+deferred, not rejected.
+
+The aircraft file format is documented for users in `docs/aircraft-file.md`; keep it in
+step with `src/aircraft/loader.py`.
 
 Data from XFLR5/AVL uses b/2V and c/2V and body-axis forms: it must be converted in
 the aircraft-data layer, never inside the solver.
@@ -134,29 +140,29 @@ the aircraft-data layer, never inside the solver.
 
 ## Status
 
-2026-10-11: lateral-directional pipeline works end to end (loader + validation,
-state-space, modal analysis, time simulation, reference comparison, figures). Two
-independently sourced aircraft run through the same solver: the CS7 transport (matches the
-case study's precisely stated values to <1%) and DF1 in three mission configurations
-(matches XFLR5's lateral eigenvalues to 4 significant figures). 73 tests pass.
+2026-10-11. Lateral and longitudinal linear dynamics both work end to end: aircraft file
+with validation, state-space, modal analysis, time simulation, reference comparison,
+figures. 92 tests pass.
 
-Scope grew the same day (R9 in `docs/requirements.md`): derivatives from geometry by a
-built-in vortex-lattice solver (`src/aero`), so the tool does not depend on XFLR5.
-Phases 1-2 of `docs/plans/2026-10-11-vortex-lattice.md` are done and awaiting review: for
-DF1 the main derivatives are within about 5-10% of XFLR5 and the resulting lateral modes
-within about 10%.
+- **Dynamics code verified** against two independent sources: the CS7 transport (lateral;
+  matches the case study's precisely stated values to <1%) and DF1 in three mission
+  configurations (lateral and longitudinal; matches XFLR5's eigenvalues to 4 figures).
+- **Derivatives from geometry** (R9) by the built-in vortex lattice in `src/aero`. For
+  DF1, main derivatives are within about 5-10% of XFLR5; lateral modes within about 10%;
+  short period and phugoid frequency within 2%; phugoid damping 20-45% high (drag-driven).
 
 DF1 aircraft files per mission: `df1_m*.toml` (XFLR5 derivatives, for solver
-verification), `df1_m*_distributed.toml` (same, inertia corrected from the design report),
-`df1_m*_vlm.toml` (derivatives from the built-in lattice, XFLR5 inertia).
+verification), `df1_m*_distributed.toml` (same, inertia corrected from the design report;
+use for results about the aircraft), `df1_m*_vlm.toml` (derivatives from the built-in
+lattice, XFLR5 inertia).
 
 Open, in order:
-1. Vortex-lattice phases 3 (control derivatives) and 4 (product packaging: one installable
-   command, user docs) need approval.
-2. Longitudinal dynamics. Not locked: Ch. 5 form vs. the data available. The lattice now
-   produces DF1 longitudinal derivatives; the Concorde data sheet for CS5 is missing.
-3. DF1 data: Missions 2 and 3 XFLR5 masses disagree with the design report (see
+1. Vortex-lattice phase 3: control derivatives (elevator, aileron, rudder), then control
+   responses. Needs approval. No control inputs are simulated for DF1 yet.
+2. Visualization export (`src/viz`): not started. R1 (animated demo) is the primary
+   success criterion.
+3. Vortex-lattice phase 4: product packaging (one installable command, user docs).
+4. DF1 data: Missions 2 and 3 XFLR5 masses disagree with the design report (see
    `docs/decisions/2026-10-11-df1-mass-distribution.md`).
-4. Scope question for the planning chat: CS7's long-time figures need `sin(phi)` in the
-   gravity term, which a strictly linear tool does not have.
-5. Visualization export (`src/viz`) has not been started.
+5. Scope questions for the planning chat: CS7's long-time figures need `sin(phi)` in the
+   gravity term; the five-state course longitudinal form.

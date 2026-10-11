@@ -13,6 +13,7 @@ l = 0.307          # mean chord; XFLR5 span reference was 1.182 m
 
 [inertia]
 A = 0.011706259192746605
+B = 0.18313
 C = 0.1742737408072534
 E = 0.01850221825563759
 
@@ -34,6 +35,18 @@ Cl_dl = 0.0
 Cl_dn = 0.0
 Cn_dl = 0.0
 Cn_dn = 0.0
+
+# Speed derivatives are of the whole force, so CZ_u is about -2*CL at trim.
+# Elevator and throttle derivatives are not part of the file yet.
+[longitudinal]
+CX_u = -0.026903115374235197
+CX_alpha = 0.07123753378744525
+CZ_u = -0.33359874638161696
+CZ_alpha = -3.8942312286392036
+CZ_q = -3.595408673839712
+Cm_u = -9.341495008922285e-13
+Cm_alpha = -0.8572726599212034
+Cm_q = -4.429218177745317
 
 [condition]
 V = 28.048275997799642

@@ -15,7 +15,10 @@ from src.aero.geometry import (Geometry, GeometryError, MassProperties, Section,
                                load_geometry)
 from src.aero.lattice import build_lattice
 from src.aero.vlm import VortexLattice, segment_velocity
-from src.aircraft.xflr5 import log_derivatives
+from src.aircraft import load_aircraft
+from src.aircraft.xflr5 import aircraft_toml, log_derivatives
+from src.dynamics import longitudinal_state_space
+from src.verify import load_reference, longitudinal_modal_metrics
 
 DF1 = "data/geometry/df1_m1.toml"
 
@@ -119,6 +122,21 @@ def test_df1_static_stability_signs(df1):
     computed, _ = df1
     assert computed["Cma"] < 0 and computed["Cnb"] > 0 and computed["Clb"] < 0
     assert computed["Clp"] < 0 and computed["Cmq"] < 0 and computed["Cnr"] < 0
+
+
+def test_df1_longitudinal_modes_from_geometry_against_xflr5(df1, tmp_path):
+    """Short period and phugoid frequency follow from lift and moment slopes; damping of
+    the phugoid depends on drag, which is an input, so it is not checked here."""
+    computed, _ = df1
+    path = tmp_path / "df1.toml"
+    path.write_text(aircraft_toml(computed, 0.307, "test"))
+    metrics = longitudinal_modal_metrics(longitudinal_state_space(*load_aircraft(path)))
+    reference = {r["metric"]: r["value"]
+                 for r in load_reference("data/reference/df1_m1_longitudinal.toml")}
+    for key, tolerance in (("short_period_natural_frequency_rad_s", 0.06),
+                           ("short_period_damping_ratio", 0.06),
+                           ("phugoid_natural_frequency_rad_s", 0.06)):
+        assert metrics[key] == pytest.approx(reference[key], rel=tolerance)
 
 
 def test_refining_the_mesh_changes_the_answer_less_each_time():
