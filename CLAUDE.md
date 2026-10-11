@@ -69,6 +69,7 @@ python3 -m venv venv && ./venv/bin/pip install -r requirements.txt
 # add --spread data/aircraft/df1_mass_distribution.toml for the corrected-inertia version
 ./venv/bin/python -m src.aero.derive data/geometry/df1_m1.toml --aircraft OUT.toml  # geometry -> derivatives
 ./venv/bin/python -m cases.df1_vlm          # built-in lattice vs XFLR5, derivative by derivative
+./venv/bin/python -m cases.df1_flight_log   # inventory of the DF1 flight log (no model comparison yet)
 ```
 
 ## Visualization plan
@@ -156,9 +157,16 @@ verification), `df1_m*_distributed.toml` (same, inertia corrected from the desig
 use for results about the aircraft), `df1_m*_vlm.toml` (derivatives from the built-in
 lattice, XFLR5 inertia).
 
+- **Flight data:** one DF1 PX4 log is in `data/flight/`. It has been inventoried but not
+  compared with the model: it has no hands-off segments, so it cannot confirm the modes.
+  `docs/flight-validation.md` is the living record of this and must be kept honest about
+  what has and has not been compared with real data. **Paused** until Ishan flies
+  dedicated test manoeuvres; do not build on the existing log in the meantime.
+
 Open, in order:
 1. Vortex-lattice phase 3: control derivatives (elevator, aileron, rudder), then control
-   responses. Needs approval. No control inputs are simulated for DF1 yet.
+   responses. Needs approval. No control inputs are simulated for DF1 yet. This also
+   unlocks the one comparison the flight log can support (response to recorded inputs).
 2. Visualization export (`src/viz`): not started. R1 (animated demo) is the primary
    success criterion.
 3. Vortex-lattice phase 4: product packaging (one installable command, user docs).

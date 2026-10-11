@@ -52,6 +52,7 @@ derivatives. No solver code changes are needed.
 
 - `docs/aircraft-file.md` — the aircraft file format and its conventions
 - `docs/plans/` — approved plans with their checklists
+- `docs/flight-validation.md` — what has and has not been checked against real flight data
 
 - `docs/requirements.md` — requirements table and benchmark aircraft plan
 - `docs/timeline.md` — semester plan, mapped to the Fall 2026 academic calendar
