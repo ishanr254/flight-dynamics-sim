@@ -1,0 +1,86 @@
+# Imported by src.aero.xflr5_plane from data/aircraft/Mission 1 Iteration 2.xml and data/aircraft/Mission 1 Iteration 2_T7-VLM2-Elev(g1_0).xml.
+# Axes: x aft, y to starboard, z up. SI units.
+
+name = "Mission 1 Iteration 2"
+
+[reference]
+S = 0.36287
+b = 1.182
+c = 0.307
+
+[condition]
+rho = 1.225
+
+[drag]
+CD0 = 0.009585   # zero-lift (viscous) drag coefficient; the lattice cannot predict it
+
+[mass]
+m = 2.973
+cg = [0.058531, -2.6807e-18, -0.055275]
+Ixx = 0.01114
+Iyy = 0.18313
+Izz = 0.17484
+Ixz = 0.01581
+
+[[surface]]
+name = "Main Wing"
+position = [0.0, 0.0, 0.0]
+incidence_deg = 0.0
+symmetric = true
+vertical = false
+  [[surface.section]]
+  span = 0.0
+  chord = 0.307
+  x_offset = 0.0
+  dihedral_deg = 0.0
+  twist_deg = 0.0
+  airfoil = "FX 60-126"
+  [[surface.section]]
+  span = 0.591
+  chord = 0.307
+  x_offset = 0.0
+  dihedral_deg = 0.0
+  twist_deg = 0.0
+  airfoil = "FX 60-126"
+
+[[surface]]
+name = "Elevator"
+position = [0.83, 0.0, 0.0]
+incidence_deg = -2.0
+symmetric = true
+vertical = false
+  [[surface.section]]
+  span = 0.0
+  chord = 0.152
+  x_offset = 0.0
+  dihedral_deg = 0.0
+  twist_deg = 0.0
+  airfoil = "NACA 0012"
+  [[surface.section]]
+  span = 0.219
+  chord = 0.152
+  x_offset = 0.0
+  dihedral_deg = 3.0
+  twist_deg = 0.0
+  airfoil = "NACA 0012"
+
+[[surface]]
+name = "Fin"
+position = [0.83, 0.0, 0.0]
+incidence_deg = 0.0
+symmetric = false
+vertical = true
+  [[surface.section]]
+  span = 0.0
+  chord = 0.146
+  x_offset = 0.0
+  dihedral_deg = 0.0
+  twist_deg = 0.0
+  airfoil = "NACA 0012"
+  [[surface.section]]
+  span = 0.133
+  chord = 0.146
+  x_offset = 0.0
+  dihedral_deg = 0.0
+  twist_deg = 0.0
+  airfoil = "NACA 0012"

@@ -16,6 +16,7 @@ adopted.
 | R6 | Input robustness | Missing fields, unit mismatches, invalid inertia data, unsupported assumptions caught with intelligible diagnostics |
 | R7 | Practical execution | Runtime recorded on a named ordinary laptop for representative cases |
 | R8 | Traceability / usability | Someone else can reproduce a documented case from inputs and instructions alone; assumptions and data provenance preserved |
+| R9 | Aerodynamic prediction from geometry *(added 2026-10-11)* | Stability and control derivatives computed from aircraft geometry by a built-in method, with no external aerodynamics tool at run time; each derivative compared against an independent reference at matched geometry and flight condition |
 
 **Stretch (not core):** mission-constraint layer (e.g. DBF competition rules),
 sensitivity studies, nonlinear extension.
@@ -30,7 +31,7 @@ R1 and R2 are both core requirements, not one primary and one stretch:
   through the same interface. It does not necessarily need the same visualization
   polish as aircraft #1 unless time allows.
 
-R3–R8 are the quantitative backbone underneath R1/R2 — the visual demo needs to be
+R3–R9 are the quantitative backbone underneath R1/R2 — the visual demo needs to be
 convincing *because* the underlying numbers are verified, not instead of that.
 
 ## Benchmark aircraft
@@ -39,3 +40,13 @@ DF1 and/or a real aircraft with well-tabulated values, likely drawn from one of
 Ishan's MAE 4070/5070 flight dynamics case studies (CS4–CS7). Aircraft #2 should be
 independently sourced from aircraft #1 (not a parameter sweep of the same aircraft)
 to make R2 a meaningful test.
+
+## Scope change, 2026-10-11
+
+Decided by Ishan in an implementation session (recorded here at his direction): the
+long-term goal is a tool that does not rely on XFLR5. R9 adds geometry-to-derivatives
+prediction by a built-in vortex-lattice method, verified against the existing XFLR5
+results. The tool is also to be treated as a product software package: one installable
+program that goes from geometry to derivatives, modes, simulation and a report, with user
+documentation. Supplying derivatives directly through the aircraft data file (the original
+interface) stays supported. Plan and status: `docs/plans/2026-10-11-vortex-lattice.md`.

@@ -31,10 +31,13 @@ src/
   simulate/     # time-domain integration (scipy.integrate.solve_ivp)
   viz/          # exports time-history JSON for the visualizer
   verify/       # benchmark comparison, reference cases (R3-R5)
+  aero/         # geometry -> stability derivatives (built-in vortex lattice, R9)
   analyze.py    # generic entry point: modal analysis of any aircraft file
 cases/          # aircraft-specific scenarios and figures (never imported by src/)
 data/
   aircraft/     # per-aircraft data files (TOML)
+  geometry/     # geometry + mass files, input to src.aero
+  airfoils/     # Selig .dat coordinates (NACA 4-digit sections are built in)
   reference/    # benchmark reference values, with how each was obtained
 tests/
 docs/
@@ -63,6 +66,8 @@ python3 -m venv venv && ./venv/bin/pip install -r requirements.txt
 ./venv/bin/python -m cases.df1_lateral      # DF1 (3 missions) vs XFLR5 eigenvalues
 ./venv/bin/python -m src.aircraft.xflr5 LOG --chord C --aircraft OUT.toml  # XFLR5 log -> aircraft file
 # add --spread data/aircraft/df1_mass_distribution.toml for the corrected-inertia version
+./venv/bin/python -m src.aero.derive data/geometry/df1_m1.toml --aircraft OUT.toml  # geometry -> derivatives
+./venv/bin/python -m cases.df1_vlm          # built-in lattice vs XFLR5, derivative by derivative
 ```
 
 ## Visualization plan
@@ -130,22 +135,28 @@ the aircraft-data layer, never inside the solver.
 ## Status
 
 2026-10-11: lateral-directional pipeline works end to end (loader + validation,
-state-space, modal analysis, time simulation, reference comparison, figures); 49 tests
-pass. Two independently sourced aircraft run through the same solver: the CS7 transport
-(matches the case study's precisely stated values to <1%) and DF1 in three mission
-configurations (matches XFLR5's lateral eigenvalues to 4 significant figures).
+state-space, modal analysis, time simulation, reference comparison, figures). Two
+independently sourced aircraft run through the same solver: the CS7 transport (matches the
+case study's precisely stated values to <1%) and DF1 in three mission configurations
+(matches XFLR5's lateral eigenvalues to 4 significant figures). 73 tests pass.
 
-DF1 has two files per mission: `df1_m*.toml` (as XFLR5 analysed it, for verification) and
-`df1_m*_distributed.toml` (inertia corrected from the design report's dimensions, for
-physically meaningful results). Only free responses are simulated for DF1 so far.
+Scope grew the same day (R9 in `docs/requirements.md`): derivatives from geometry by a
+built-in vortex-lattice solver (`src/aero`), so the tool does not depend on XFLR5.
+Phases 1-2 of `docs/plans/2026-10-11-vortex-lattice.md` are done and awaiting review: for
+DF1 the main derivatives are within about 5-10% of XFLR5 and the resulting lateral modes
+within about 10%.
+
+DF1 aircraft files per mission: `df1_m*.toml` (XFLR5 derivatives, for solver
+verification), `df1_m*_distributed.toml` (same, inertia corrected from the design report),
+`df1_m*_vlm.toml` (derivatives from the built-in lattice, XFLR5 inertia).
 
 Open, in order:
-1. Longitudinal model. Not locked: Ch. 5 form vs. the data available (XFLR5 gives DF1
-   longitudinal derivatives in body-velocity form; the Concorde data sheet for CS5 is
-   missing).
-2. DF1 data: Missions 2 and 3 XFLR5 masses disagree with the design report (see
-   `docs/decisions/2026-10-11-df1-mass-distribution.md`); control derivatives exist for
-   Mission 1 only, in the report's Table 4.4.4, and are not yet used.
-3. Scope question for the planning chat: CS7's long-time figures need `sin(phi)` in the
+1. Vortex-lattice phases 3 (control derivatives) and 4 (product packaging: one installable
+   command, user docs) need approval.
+2. Longitudinal dynamics. Not locked: Ch. 5 form vs. the data available. The lattice now
+   produces DF1 longitudinal derivatives; the Concorde data sheet for CS5 is missing.
+3. DF1 data: Missions 2 and 3 XFLR5 masses disagree with the design report (see
+   `docs/decisions/2026-10-11-df1-mass-distribution.md`).
+4. Scope question for the planning chat: CS7's long-time figures need `sin(phi)` in the
    gravity term, which a strictly linear tool does not have.
-4. Visualization export (`src/viz`) has not been started.
+5. Visualization export (`src/viz`) has not been started.
