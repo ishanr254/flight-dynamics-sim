@@ -1,10 +1,11 @@
 """Linearized lateral-directional equations, MAE 4070/5070 Ch. 9 eq. (5).
 
 State [beta, r, p, phi], controls [delta_l, delta_n], about straight level flight.
+The notes take the product of inertia E as zero; here it is kept, through
+A*dp/dt - E*dr/dt = L and C*dr/dt - E*dp/dt = N, which reduces to eq. (5) when E = 0.
 """
 
 import math
-import warnings
 
 import numpy as np
 
@@ -16,12 +17,6 @@ INPUTS = ("delta_l", "delta_n")
 
 def lateral_state_space(aircraft, condition):
     ac, c, fc = aircraft, aircraft.lateral, condition
-    if ac.E != 0.0:
-        warnings.warn(
-            f"{ac.name}: product of inertia E = {ac.E:g} is neglected by this model "
-            f"(E^2/(A*C) = {ac.E ** 2 / (ac.A * ac.C):.3g}); roll/yaw inertial coupling "
-            "is not represented", stacklevel=2)
-
     qS = 0.5 * fc.rho * fc.V ** 2 * ac.S
     rate = ac.l / fc.V  # rate derivatives are per (p*l/V), (r*l/V)
     force = qS / (ac.m * fc.V)
@@ -43,4 +38,9 @@ def lateral_state_space(aircraft, condition):
         [roll * c.Cl_dl, roll * c.Cl_dn],
         [0.0, 0.0],
     ])
+    if ac.E != 0.0:
+        coupling = np.eye(4)
+        coupling[1, 2] = -ac.E / ac.C
+        coupling[2, 1] = -ac.E / ac.A
+        A, B = np.linalg.solve(coupling, A), np.linalg.solve(coupling, B)
     return StateSpace(A, B, STATES, INPUTS)

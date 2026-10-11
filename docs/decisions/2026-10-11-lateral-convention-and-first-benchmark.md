@@ -11,7 +11,8 @@ The lateral-directional model is the linearized system of Ch. 9 eq. (5)
 - Aerodynamic-angle form with non-dimensional coefficients (`CY_*`, `Cl_*`, `Cn_*`).
 - One reference length `l` for every moment coefficient and rate derivative; rate
   derivatives are per `p*l/V` and `r*l/V` (not `b/2V`).
-- Inertias `A` (roll), `C` (yaw); product of inertia `E` is neglected, as in the notes.
+- Inertias `A` (roll), `C` (yaw). The notes take the product of inertia `E` as zero; the
+  solver keeps it (see the DF1 section below) and reduces to eq. (5) exactly when `E = 0`.
 - SI units, radians.
 
 Case Study 7 (civil transport) is the first benchmark aircraft, because it is the only
@@ -56,15 +57,37 @@ Two things to know:
 2. **CS7's quoted spiral time constant ("around -700 s") disagrees with its own figure.**
    The Q4 figure (30 deg to 6 deg in 200 s) implies about 125 s; the model gives 129 s.
 
+## DF1 through the same solver (added later the same day)
+
+The XFLR5 stability logs for the three DF1 mission configurations were converted with
+`python3 -m src.aircraft.xflr5` and run through the unchanged pipeline
+(`python3 -m cases.df1_lateral`). All lateral modes match XFLR5's own eigenvalues to the
+4 significant figures the log prints, e.g. Mission 1: roll -147.96 vs -147.9, Dutch roll
+-1.2791 ± 8.3250j vs -1.279 ± 8.325j, spiral +0.05598 vs +0.05598 1/s.
+
+Decision: **keep the product of inertia `E` in the model**, via
+`A*dp/dt - E*dr/dt = L` and `C*dr/dt - E*dp/dt = N`. Alternative was to follow the notes
+and neglect it. Rejected because for DF1 Mission 1 `E^2/(A*C) = 0.17`: with `E = 0` the
+roll eigenvalue is about -123 1/s instead of -148, a 17% error that is purely a modelling
+omission. CS7 has `E = 0`, so its results are unchanged.
+
+Data conventions for XFLR5 input: stability axes (so `alpha = theta = 0` in the aircraft
+file), moments re-referenced from span to chord, rates from `b/2V` to `l/V`.
+
+Data-quality caveat, not a solver issue: every point mass in the three XFLR5 models sits
+on the centreline (y = 0), and the Mission 1 wing has no distributed mass. Roll inertia is
+therefore very likely underestimated (0.011 kg m^2 for M1 and M3 vs 0.071 for M2), which
+is what makes the M1 roll mode an implausible 7 ms. The tool reproduces XFLR5 faithfully;
+the input inertia is what needs checking.
+
 ## Open
 
 - Longitudinal: Ch. 5 derives only some A-matrix entries, and the Concorde data sheet
   CS5 refers to ("described at the end of this case study") is not in the solutions PDF.
-  Needed: `l`, pitch inertia `B`, `Cm_q`, `Cm_0`, and the thrust model constants.
-- DF1: the XFLR5 exports in `data/aircraft/` give mass, inertia, geometry and trim point
-  but no stability derivatives; those are in the XFLR5 stability-analysis log.
-- DF1's `Ixz` is large relative to `Ixx` (Mission 1: 0.0158 vs 0.0111 kg m^2), so the
-  `E = 0` assumption needs a decision before DF1 results are trusted. The solver currently
-  warns and neglects it.
+  Needed: `l`, pitch inertia `B`, `Cm_q`, `Cm_0`, and the thrust model constants. The
+  XFLR5 logs do give DF1 longitudinal derivatives and eigenvalues, in body-velocity form.
+- DF1 aileron and rudder derivatives are not in the logs (no lateral control was defined
+  in the XFLR5 analysis), so only free responses can be simulated for DF1.
+- DF1 roll inertia needs a realistic spanwise mass distribution (see caveat above).
 - Whether a `sin(phi)` option belongs in a "linear" tool (needed to match CS7's long-time
   figures) is a scope question for the planning chat.

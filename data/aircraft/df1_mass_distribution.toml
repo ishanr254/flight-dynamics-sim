@@ -1,0 +1,39 @@
+# Physical extents for DF1 components that the XFLR5 models carry as point masses on the
+# centreline. Each entry spreads that mass uniformly over a box centred where the point
+# mass already is, so total mass and centre of gravity are unchanged; only the moments of
+# inertia grow. Applied by src.aircraft.xflr5 --spread.
+#
+# Dimensions: 2026 Cornell DBF design report (2026DBF_CORNELLUNIVERSITY_DESIGN_REPORT.pdf),
+# Table 5.1.1 (p.29) and the three-view drawing (p.42). Masses: Table 5.3.1 (p.40), which
+# are the same values as the XFLR5 point masses. extent = [x, y, z] full lengths in metres.
+
+source = "2026 Cornell DBF design report, Tables 5.1.1 and 5.3.1, three-view drawing p.42"
+
+[[spread]]
+component = "Main wing"
+mass = 0.398
+extent = [0.3071, 1.1814, 0.0]
+basis = "Table 5.1.1: span 46.51 in, chord 12.09 in; rib-and-stringer wing taken as uniform"
+
+[[spread]]
+component = "Fuselage"
+mass = 0.385
+extent = [0.5093, 0.1041, 0.1295]
+basis = "Three-view: 20.05 in long, 4.10 in wide, 5.10 in high; shell taken as a uniform box"
+
+[[spread]]
+component = "Tail spar"
+mass = 0.163
+extent = [0.8301, 0.0, 0.0]
+basis = "Inferred: boom CG is at x = 16.34 in, so a uniform boom spans 0 to 32.68 in (three-view shows 33.27 in wing leading edge to tail)"
+
+[[spread]]
+component = "Main gear"
+mass = 0.125
+extent = [0.0, 0.4397, 0.0]
+basis = "Three-view: 17.31 in track; taken as a uniform bar, which understates wheels at the tips"
+
+# Left as point masses for lack of data: "Wing integration + spar" (0.337 kg; the split
+# between the central PLA piece and the full-span carbon spar is not given), battery,
+# motor, nosecone, front gear and avionics (all compact). Roll inertia is therefore still
+# a lower bound.

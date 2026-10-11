@@ -60,6 +60,9 @@ python3 -m venv venv && ./venv/bin/pip install -r requirements.txt
 ./venv/bin/pytest -q
 ./venv/bin/python -m src.analyze data/aircraft/cs7_transport.toml   # any aircraft file
 ./venv/bin/python -m cases.cs7_lateral      # CS7 benchmark table + figures in output/
+./venv/bin/python -m cases.df1_lateral      # DF1 (3 missions) vs XFLR5 eigenvalues
+./venv/bin/python -m src.aircraft.xflr5 LOG --chord C --aircraft OUT.toml  # XFLR5 log -> aircraft file
+# add --spread data/aircraft/df1_mass_distribution.toml for the corrected-inertia version
 ```
 
 ## Visualization plan
@@ -92,7 +95,7 @@ investigation here unless something concrete shows otherwise.
 **Lateral — locked** (2026-10-11, `docs/decisions/`): MAE 4070/5070 Ch. 9 eq. (5).
 State `[beta, r, p, phi]`, controls `[delta_l, delta_n]`, non-dimensional coefficients,
 one reference length `l`, rate derivatives per `p*l/V` and `r*l/V` (ℓ/V, not ℓ/2V or
-b/2V — the factor-of-2 trap), inertias `A`/`C` with `E` neglected, SI and radians.
+b/2V — the factor-of-2 trap), inertias `A`/`C`/`E` (the notes drop `E`; the solver keeps it), SI and radians.
 
 **Longitudinal — not locked.** Ch. 5 fixes state `[V, gamma, alpha, q, h]` and controls
 `[delta_x, delta_m]`; the remaining matrix entries and a complete benchmark data set are
@@ -126,13 +129,23 @@ the aircraft-data layer, never inside the solver.
 
 ## Status
 
-2026-10-11: lateral-directional pipeline works end to end on the CS7 transport
-(loader + validation, state-space, modal analysis, time simulation, reference
-comparison, figures); 33 tests pass. Matches CS7's precisely stated values to <1%.
+2026-10-11: lateral-directional pipeline works end to end (loader + validation,
+state-space, modal analysis, time simulation, reference comparison, figures); 49 tests
+pass. Two independently sourced aircraft run through the same solver: the CS7 transport
+(matches the case study's precisely stated values to <1%) and DF1 in three mission
+configurations (matches XFLR5's lateral eigenvalues to 4 significant figures).
+
+DF1 has two files per mission: `df1_m*.toml` (as XFLR5 analysed it, for verification) and
+`df1_m*_distributed.toml` (inertia corrected from the design report's dimensions, for
+physically meaningful results). Only free responses are simulated for DF1 so far.
 
 Open, in order:
-1. DF1 needs stability derivatives (XFLR5 stability log) and an XFLR5→course-convention
-   converter; DF1's large `Ixz` makes the `E = 0` assumption questionable.
-2. Longitudinal model: needs the Concorde data sheet for CS5 and the full A matrix.
+1. Longitudinal model. Not locked: Ch. 5 form vs. the data available (XFLR5 gives DF1
+   longitudinal derivatives in body-velocity form; the Concorde data sheet for CS5 is
+   missing).
+2. DF1 data: Missions 2 and 3 XFLR5 masses disagree with the design report (see
+   `docs/decisions/2026-10-11-df1-mass-distribution.md`); control derivatives exist for
+   Mission 1 only, in the report's Table 4.4.4, and are not yet used.
 3. Scope question for the planning chat: CS7's long-time figures need `sin(phi)` in the
    gravity term, which a strictly linear tool does not have.
+4. Visualization export (`src/viz`) has not been started.

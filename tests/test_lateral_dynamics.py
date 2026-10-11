@@ -69,6 +69,14 @@ def test_rate_derivatives_scale_with_l_over_V_not_l_over_2V():
     assert doubled_l.A[2, 0] == pytest.approx(2.0 * slow.A[2, 0])
 
 
-def test_nonzero_product_of_inertia_warns():
-    with pytest.warns(UserWarning, match="product of inertia"):
-        lateral_state_space(replace(AIRCRAFT, E=1.0e5), LEVEL)
+def test_product_of_inertia_couples_roll_and_yaw_equations():
+    E = 2.0e6
+    plain = lateral_state_space(AIRCRAFT, LEVEL)
+    coupled = lateral_state_space(replace(AIRCRAFT, E=E), LEVEL)
+    # A*dp/dt - E*dr/dt = L and C*dr/dt - E*dp/dt = N must reproduce the uncoupled L/A, N/C
+    for M, M0 in ((coupled.A, plain.A), (coupled.B, plain.B)):
+        assert M[2] - E / AIRCRAFT.A * M[1] == pytest.approx(M0[2])
+        assert M[1] - E / AIRCRAFT.C * M[2] == pytest.approx(M0[1])
+        assert M[0] == pytest.approx(M0[0])
+        assert M[3] == pytest.approx(M0[3])
+    assert coupled.A[2, 2] != pytest.approx(plain.A[2, 2])
