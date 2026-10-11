@@ -1,0 +1,85 @@
+# DF1 Mission 1 performance data: how fast, how hard and how long it can fly.
+# Sources: 2026 Cornell DBF design report (page numbers below) and the propulsion model in
+# the sizing-scoring-26-27 repository. Kept separate from the aircraft file, which holds
+# stability and control data about one trim point.
+
+name = "DF1 Mission 1"
+source = "2026 Cornell DBF design report; sizing-scoring-26-27/src/prop"
+
+[aerodynamics]
+CD0 = 0.059            # zero-lift drag coefficient, CFD and OpenVSP (report section 4.4.7, p.26)
+oswald = 0.75          # Oswald efficiency factor (report p.26)
+aspect_ratio = 3.85    # report Table 5.1.1 (p.29)
+CL_max = 1.41          # from the report's Mission 1 stall speed, 31.69 ft/s at 6.554 lb (Table 4.4.2, p.23)
+
+[structure]
+load_factor_limit = 4.5        # set by Ishan, 2026-10-11. The report states 3.5 (p.30)
+never_exceed_speed = 41.1      # m/s (135 ft/s), read from the report's V-n diagram (Figure 5.1.2, p.30)
+
+[propeller]
+file = "data/propulsion/apc_15x6E.json"    # 15 in x 6 in, Missions 1 and 3 (report Table 4.3.2, p.20)
+
+[motor]
+name = "Scorpion SII-4025-520KV"           # report Table 4.3.2
+kv = 520.0             # rpm per volt
+rated_power = 1200.0   # W, as named in the report; used only to estimate Rm and I0
+
+[battery]
+name = "Tattu 4200 mAh 6S 35C"             # report Table 4.3.2
+cells = 6
+capacity_ah = 4.2
+c_rating = 35.0
+usable_fraction = 0.85                     # sizing-scoring-26-27 default
+
+[limits]
+fuse_current = 100.0   # A (report section 4.3.5, p.20)
+
+[calibration]
+# Installed thrust as a fraction of the model's thrust: measured static thrust (46.0 N,
+# report Table 8.1.2) over the model's static thrust (55.5 N). The report's own MATLAB and
+# eCalc curves over-predict the same test by a similar amount (Figure 8.1.2). Applying the
+# static ratio at all speeds is an assumption. Set to 1.0 to remove the correction.
+thrust_factor = 0.83
+
+# Measurements and predictions to compare the models against. Not used by the models.
+[[reference]]
+metric = "static_thrust_N"
+value = 46.0
+kind = "static test, 15x6 propeller with the 4200 mAh pack: 10.34 lbf"
+source = "report Table 8.1.2, p.55"
+
+[[reference]]
+metric = "static_current_A"
+value = 60.39
+kind = "static test, same run"
+source = "report Table 8.1.2, p.55"
+
+[[reference]]
+metric = "static_electrical_power_W"
+value = 1358.0
+kind = "static test, same run"
+source = "report Table 8.1.2, p.55"
+
+[[reference]]
+metric = "stall_speed_m_s"
+value = 9.66
+kind = "report prediction: 31.69 ft/s (the model's CL_max was set from this, so not independent)"
+source = "report Table 4.4.2, p.23"
+
+[[reference]]
+metric = "level_drag_at_cruise_N"
+value = 10.7
+kind = "read from the report's drag polar at 90.88 ft/s: about 2.4 lbf"
+source = "report Figure 4.4.9, p.27"
+
+[[reference]]
+metric = "top_speed_m_s"
+value = 34.1
+kind = "read from the report's rate-of-climb plot, where climb rate reaches zero: about 112 ft/s"
+source = "report Figure 4.4.7, p.26"
+
+[[reference]]
+metric = "endurance_at_cruise_min"
+value = 6.0
+kind = "report prediction at 90.88 ft/s"
+source = "report section 5.4, p.41"

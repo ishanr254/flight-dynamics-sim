@@ -16,7 +16,7 @@ Keep the three parts together:
 
 ## Regenerating the flights
 
-    python3 -m cases.df1_course
+    python3 -m cases.viewer_scenarios
 
 writes `data/scenarios.js`. The data is a script, not a JSON file, because browsers do not
 let a page opened from disk read JSON with a network request.

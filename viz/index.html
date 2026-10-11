@@ -123,7 +123,7 @@ if(typeof THREE==='undefined'||!scenarios.length){
   const m=$('message');
   m.textContent=typeof THREE==='undefined'
     ?'Could not load vendor/three.min.js. Keep the viz folder together.'
-    :'No scenarios found. Generate data/scenarios.js with: python3 -m cases.df1_course';
+    :'No scenarios found. Generate data/scenarios.js with: python3 -m cases.viewer_scenarios';
   m.style.display='block';
   return;
 }

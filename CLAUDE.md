@@ -29,6 +29,8 @@ src/
   dynamics/     # state-space construction (A, B matrices), conventions
   analysis/     # modal/eigen analysis, mode classification
   simulate/     # linear responses; nonlinear 6-DOF model; course autopilot
+  propulsion/   # propeller tables, motor and battery, solved operating points
+  performance/  # performance data loading; envelope (stall, top speed, turn limits)
   viz/          # exports flights for the web viewer
   verify/       # benchmark comparison, reference cases (R3-R5)
   aero/         # geometry -> stability derivatives (built-in vortex lattice, R9)
@@ -40,6 +42,8 @@ data/
   geometry/     # geometry + mass files, input to src.aero
   airfoils/     # Selig .dat coordinates (NACA 4-digit sections are built in)
   courses/      # course layouts and flight limits for the autopilot
+  performance/  # per-configuration drag polar, CL_max, structure, powertrain, references
+  propulsion/   # propeller coefficient tables (APC)
   flight/       # flight logs
   reference/    # benchmark reference values, with how each was obtained
 tests/
@@ -69,7 +73,9 @@ python3 -m venv venv && ./venv/bin/pip install -r requirements.txt
 ./venv/bin/python -m cases.df1_lateral      # DF1 (3 missions) vs XFLR5 eigenvalues
 ./venv/bin/python -m cases.df1_longitudinal # DF1 short period and phugoid vs XFLR5
 ./venv/bin/python -m cases.df1_controls     # control derivatives and control responses
-./venv/bin/python -m cases.df1_course       # fly the competition course; exports viz/data/scenarios.js
+./venv/bin/python -m cases.df1_course       # fly the course at a set speed and turn limit
+./venv/bin/python -m cases.df1_performance  # propulsion check, envelope, full-throttle limit laps
+./venv/bin/python -m cases.viewer_scenarios # regenerate viz/data/scenarios.js
 open viz/index.html                          # the viewer (no server needed)
 ./venv/bin/python -m src.aircraft.xflr5 LOG --chord C --aircraft OUT.toml  # XFLR5 log -> aircraft file
 # add --spread data/aircraft/df1_mass_distribution.toml for the corrected-inertia version
@@ -143,8 +149,9 @@ the aircraft-data layer, never inside the solver.
 ## Status
 
 2026-10-11. Linear dynamics (lateral and longitudinal), aerodynamics from geometry,
-control derivatives, a nonlinear 6-DOF model with a course autopilot, and a standalone web
-viewer are all in place. 134 tests pass.
+control derivatives, a nonlinear 6-DOF model with a course autopilot, performance limits
+from propulsion, drag and structure, and a standalone web viewer are all in place. 158
+tests pass.
 
 - **Dynamics code verified** against two independent sources: the CS7 transport (lateral;
   matches the case study's precisely stated values to <1%) and DF1 in three mission
@@ -158,7 +165,16 @@ viewer are all in place. 134 tests pass.
   Mission 1 flies three laps of the DBF course at 27.9 m/s in 44.4 s per lap, 61 deg bank,
   load factor 2.08, never leaving the model's valid range. The lap time follows from the
   chosen speed and load-factor limit; it is not a competition prediction.
-- **Viewer** (`viz/`): plays the course flight with chase, tower, top and orbit cameras.
+- **Performance limits** (R11): propulsion (APC propeller tables, motor, battery;
+  thrust calibrated to the static test), the report's drag polar, CL_max and a 4.5 g
+  structural limit. DF1 Mission 1: top speed 29.6 m/s; full-throttle lap 43.5 s with 2 g
+  turns, 35.4 s at 3 g, 32.1 s at the structural limit. Turn hardness matters far more
+  than thrust; returns diminish above about 3.5 g. Not checked against a measured lap.
+- **Two drag models coexist on purpose:** linear modes and the set-speed course flight
+  use the aircraft file's (low, XFLR5-based) drag so they stay comparable with XFLR5;
+  anything about performance uses `data/performance/*.toml`.
+- **Viewer** (`viz/`): plays the limit lap and the set-speed lap with chase, tower, top
+  and orbit cameras.
 - **Flight data:** one DF1 PX4 log is in `data/flight/`. It has been inventoried but not
   compared with the model: it has no hands-off segments, so it cannot confirm the modes.
   `docs/flight-validation.md` is the living record of this and must be kept honest about
@@ -184,6 +200,8 @@ including `docs/courseNotes/` (course notes and case-study solutions) and the fl
 He has said he will deal with that later; do not add further third-party material.
 
 Open, in order:
+0. Performance follow-ups, if wanted (items 5-6 of the usefulness list): Missions 2 and 3,
+   scoring and the five-minute window, design sweeps, a smarter turn strategy.
 1. Stage 4 of `docs/plans/2026-10-11-course-flight-and-visualizer.md`: manoeuvre mode
    (large scripted inputs), scenario picker with natural modes and the second aircraft.
 2. Stage 5: publishing details and user documentation; then vortex-lattice phase 4

@@ -1,8 +1,8 @@
 """DF1 Mission 1 on the competition course: python3 -m cases.df1_course
 
-Flies the nonlinear model round the AIAA DBF course under the course autopilot, prints a
-lap summary and a step-size convergence check, writes figures to output/df1/, and exports
-the flight for the web viewer (viz/data/scenarios.js).
+Flies the nonlinear model round the AIAA DBF course under the course autopilot at a set
+speed and turn load factor, prints a lap summary and a step-size convergence check, and
+writes figures to output/df1/. The viewer data is written by cases.viewer_scenarios.
 """
 
 import math
@@ -16,13 +16,12 @@ import numpy as np
 
 from src.aircraft import load_aircraft
 from src.simulate import CourseAutopilot, NonlinearAircraft, load_course, simulate_nonlinear
-from src.viz import scenario, write_scenarios
+from src.viz import scenario
 
 AIRCRAFT = "data/aircraft/df1_m1_vlm_distributed.toml"
 GEOMETRY_SPAN = 1.182      # m, DF1 wingspan (data/geometry/df1_m1.toml)
 COURSE = "data/courses/dbf_2026_m1.toml"
 OUTPUT = Path("output/df1")
-SCENARIOS = Path("viz/data/scenarios.js")
 PHASE_LABELS = {"upwind": "Upwind leg", "turn_1": "180° turn", "downwind_1": "Downwind leg",
                 "full_turn": "360° turn", "downwind_2": "Downwind leg", "turn_2": "180° turn"}
 
@@ -118,6 +117,24 @@ def figures(course, tr, autopilot):
     plt.close(fig)
 
 
+def course_scenario():
+    """The set-speed flight as a viewer scenario."""
+    course = load_course(COURSE)
+    _, autopilot, tr = fly(course)
+    s = lap_summary(course, autopilot, tr)
+    events = [(time, PHASE_LABELS[phase]) for time, phase in autopilot.events]
+    events += [(time, f"Lap {i + 1} complete") for i, time in enumerate(autopilot.lap_times)]
+    ground = {"half_length": course.half_length, "downwind_east": s["downwind_offset_m"],
+              "altitude": course.altitude}
+    return scenario(
+        tr, "df1-m1-course", "DF1 Mission 1: set speed, 2 g turns", "Course",
+        "Three laps of the AIAA DBF course at a set 27.9 m/s with turns limited to a load "
+        "factor of 2. Speed and turn limit here are inputs, and drag is the low XFLR5-based "
+        "estimate, so this shows the course and the autopilot, not the aircraft's limits.",
+        span=GEOMETRY_SPAN, summary=summary_lines(course, s), events=sorted(events),
+        ground=ground)
+
+
 def main():
     course = load_course(COURSE)
     model, autopilot, tr = fly(course)
@@ -132,19 +149,7 @@ def main():
         print(f"  dt = {dt:<6} {ap.lap_times[-1]:.3f} s")
 
     figures(course, tr, autopilot)
-    events = [(time, PHASE_LABELS[phase]) for time, phase in autopilot.events]
-    events += [(time, f"Lap {i + 1} complete") for i, time in enumerate(autopilot.lap_times)]
-    ground = {"half_length": course.half_length, "downwind_east": s["downwind_offset_m"],
-              "altitude": course.altitude}
-    flight = scenario(
-        tr, "df1-m1-course", "DF1 Mission 1: competition course", "Course",
-        "Three laps of the AIAA DBF course under a simple autopilot: 500 ft upwind, 180° "
-        "turn, 1000 ft downwind with a 360° turn, 180° turn, back to the start line. "
-        "Turns are limited to a load factor of 2.",
-        span=GEOMETRY_SPAN, summary=lines, events=sorted(events), ground=ground)
-    path = write_scenarios(SCENARIOS, [flight], "cases.df1_course")
-    print(f"\nFigures written to {OUTPUT}/; viewer data written to {path} "
-          f"({path.stat().st_size / 1024:.0f} kB)")
+    print(f"\nFigures written to {OUTPUT}/")
 
 
 if __name__ == "__main__":

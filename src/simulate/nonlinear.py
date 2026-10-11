@@ -10,7 +10,7 @@ Control vector (4): thrust [N], delta_m, delta_l, delta_n [rad].
 """
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 
@@ -48,7 +48,10 @@ class Envelope:
 
 class NonlinearAircraft:
     def __init__(self, aircraft, condition, thrust_max=math.inf,
-                 deflection_max=math.radians(30.0), envelope=Envelope()):
+                 deflection_max=math.radians(30.0), envelope=Envelope(), performance=None):
+        """performance: optional src.performance.Performance. When given, its drag polar
+        replaces the one reconstructed from the aircraft file and lift is capped at its
+        CL_max; the model then no longer linearizes exactly to the linear phugoid."""
         ac, fc = aircraft, condition
         if ac.lateral is None or ac.longitudinal is None:
             raise ModelError(f"{ac.name}: the nonlinear model needs both [lateral] and "
@@ -68,6 +71,13 @@ class NonlinearAircraft:
         # parabolic polar whose slope at trim reproduces CX_alpha
         self.k = (self.CL0 - lon.CX_alpha) / (2.0 * self.CL0 * self.CLa)
         self.CDmin = CD0 - self.k * self.CL0 ** 2
+        self.CL_max = math.inf
+        self.performance = performance
+        if performance is not None:
+            self.k, self.CDmin, self.CL_max = performance.k, performance.CD0, performance.CL_max
+            # with a lift limit known, the valid range runs up to the angle that reaches it
+            self.envelope = replace(envelope, alpha_max=(self.CL_max - self.CL0) / self.CLa)
+            CD0 = self.CDmin + self.k * self.CL0 ** 2
         qS = 0.5 * self.rho * self.V0 ** 2 * self.S
         self.thrust_trim = qS * CD0 + self.m * self.g * math.sin(self.theta0)
         self.inertia = np.array([[ac.A, 0.0, -ac.E], [0.0, ac.B, 0.0], [-ac.E, 0.0, ac.C]])
@@ -99,7 +109,11 @@ class NonlinearAircraft:
         ph, qh, rh = p * self.l / V, q * self.l / V, r * self.l / V
         CL_static = self.CL0 + self.CLa * alpha
         CL = CL_static - lon.CZ_q * qh - lon.CZ_dm * dm
-        CD = self.CDmin + self.k * CL_static * CL_static
+        if self.performance is None:
+            CD = self.CDmin + self.k * CL_static * CL_static
+        else:
+            CL = max(-self.CL_max, min(self.CL_max, CL))   # flat-topped lift beyond the limit
+            CD = self.CDmin + self.k * CL * CL
         ca, sa = math.cos(alpha), math.sin(alpha)
         Cx = CL * sa - CD * ca + lon.CX_dm * dm
         Cz = -CL * ca - CD * sa
@@ -173,7 +187,8 @@ class NonlinearAircraft:
             "load_factor": -Z / (self.m * self.g), "CL": CL,
             "course": math.atan2(ve, vn), "climb_rate": -vd,
             "ground_speed": math.hypot(vn, ve),
-            "valid": float(e.alpha_min <= alpha <= e.alpha_max and abs(beta) <= e.beta_max),
+            "valid": float(e.alpha_min <= alpha <= e.alpha_max and abs(beta) <= e.beta_max
+                           and abs(CL) < self.CL_max),
             **dict(zip(CONTROLS, controls)),
         }
 
@@ -210,6 +225,7 @@ def simulate_nonlinear(model, t_end, dt=0.01, controller=None, x0=None, stop=Non
         if controller is not None:
             controls = model.limit(controller(t, out, model))
             out = model.outputs(x, controls)
+        out.update(getattr(controller, "telemetry", None) or {})
         times.append(t)
         states.append(x.copy())
         rows.append(out)

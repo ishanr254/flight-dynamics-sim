@@ -18,6 +18,7 @@ adopted.
 | R8 | Traceability / usability | Someone else can reproduce a documented case from inputs and instructions alone; assumptions and data provenance preserved |
 | R9 | Aerodynamic prediction from geometry *(added 2026-10-11)* | Stability and control derivatives computed from aircraft geometry by a built-in method, with no external aerodynamics tool at run time; each derivative compared against an independent reference at matched geometry and flight condition |
 | R10 | Nonlinear flight simulation *(added 2026-10-11)* | Full rigid-body simulation built on the same aerodynamic data, able to fly the competition course under a simple autopilot and to respond to large scripted control inputs; for small disturbances it reproduces the linear model's modes; samples outside the aerodynamic model's valid range are flagged |
+| R11 | Performance limits from the aircraft *(added 2026-10-11)* | Top speed, stall, sustained and instantaneous turn limits, and energy use follow from models of the propulsion system, drag, maximum lift and structure, not from numbers typed in as targets; each model compared with test data or the design report where they exist; a lap flown at those limits gives lap time as an output |
 
 **Stretch (not core):** mission-constraint layer (e.g. DBF competition rules),
 sensitivity studies, nonlinear extension.
@@ -32,7 +33,7 @@ R1 and R2 are both core requirements, not one primary and one stretch:
   through the same interface. It does not necessarily need the same visualization
   polish as aircraft #1 unless time allows.
 
-R3–R10 are the quantitative backbone underneath R1/R2 — the visual demo needs to be
+R3–R11 are the quantitative backbone underneath R1/R2 — the visual demo needs to be
 convincing *because* the underlying numbers are verified, not instead of that.
 
 ## Benchmark aircraft
@@ -68,3 +69,14 @@ Decided by Ishan in an implementation session (recorded here at his direction):
   published as a static site.
 
 Plan and status: `docs/plans/2026-10-11-course-flight-and-visualizer.md`.
+
+## Scope change, 2026-10-11 (performance limits)
+
+Decided by Ishan in an implementation session (recorded here at his direction): the first
+course flight taught little, because its speed and turn limit were inputs. R11 makes the
+limits come from the aircraft, so the simulation can be used to look for performance.
+This is part of what was listed as the stretch "mission-constraint layer"; scoring and
+Missions 2 and 3 remain stretch. Structural limit load factor is set to 4.5 at Ishan's
+direction (the design report states 3.5). Data comes from the design report and from the
+propulsion model in the `sizing-scoring-26-27` repository, copied in, not imported.
+Plan and status: `docs/plans/2026-10-11-performance-limits.md`.

@@ -21,9 +21,9 @@ class Course:
     turn_direction: int         # +1 right-hand 180 deg turns, -1 left-hand
     full_turn: bool             # 360 deg turn at mid-downwind, opposite to turn_direction
     laps: int
-    speed: float
+    speed: float                # m/s to hold; math.inf means full throttle throughout
     altitude: float
-    load_factor_limit: float
+    load_factor_limit: float    # load factor to aim for in turns
     thrust_max: float
     deflection_max: float
 
@@ -35,7 +35,8 @@ def load_course(path):
     return Course(
         name=raw.get("name", Path(path).stem), half_length=float(pattern["half_length"]),
         turn_direction=direction, full_turn=bool(pattern["full_turn"]),
-        laps=int(pattern["laps"]), speed=float(flight["speed"]),
+        laps=int(pattern["laps"]),
+        speed=math.inf if flight["speed"] == "max" else float(flight["speed"]),
         altitude=float(flight["altitude"]),
         load_factor_limit=float(flight["load_factor_limit"]),
         thrust_max=float(flight["thrust_max"]),
@@ -65,8 +66,16 @@ def wrap(angle):
 
 @dataclass
 class CourseAutopilot:
+    """Without `performance` it flies to the course's own numbers. With it (and a thrust
+    table from the powertrain) thrust comes from the propulsion model and turns respect
+    the structural and lift limits."""
+
     course: Course
     gains: Gains = field(default_factory=Gains)
+    performance: object = None
+    thrust_table: object = None
+    structure_margin: float = 0.93   # fraction of the structural limit aimed for in turns
+    lift_margin: float = 0.85        # fraction of maximum lift aimed for in turns
 
     def __post_init__(self):
         self.phase = "upwind"
@@ -81,6 +90,7 @@ class CourseAutopilot:
         self.lap_times = []           # times of crossing the start line northbound
         self.events = [(0.0, "upwind")]
         self.finished = False
+        self.telemetry = {}
 
     # ---------------------------------------------------------------- guidance
     def _advance(self, t, out):
@@ -135,7 +145,16 @@ class CourseAutopilot:
         self._last_psi, self._last_t, self._last_north = out["psi"], t, out["north"]
 
         V, phi = out["V"], out["phi"]
-        bank_limit = math.acos(1.0 / c.load_factor_limit)
+        qS = 0.5 * model.rho * V * V * model.S
+        weight = model.m * model.g
+        turn_target, ceiling = c.load_factor_limit, c.load_factor_limit * 1.1
+        if self.performance is not None:
+            lift_limit = self.performance.CL_max * qS / weight
+            turn_target = min(turn_target,
+                              self.structure_margin * self.performance.load_factor_limit,
+                              self.lift_margin * lift_limit)
+            ceiling = min(self.performance.load_factor_limit, 0.97 * lift_limit)
+        bank_limit = math.acos(1.0 / max(turn_target, 1.0001))
         turn_rate = g.heading * (self._heading_command(out) - self.heading)
         wanted = max(-bank_limit, min(bank_limit, math.atan(V * turn_rate / model.g)))
         step = g.bank_rate * dt
@@ -147,9 +166,8 @@ class CourseAutopilot:
         gamma = math.asin(max(-1.0, min(1.0, out["climb_rate"] / V)))
         n = (1.0 / max(math.cos(phi), 0.2)
              + g.flight_path * (climb / V - gamma) * V / model.g)
-        n = max(0.0, min(c.load_factor_limit * 1.1, n))
-        qS = 0.5 * model.rho * V * V * model.S
-        CL = n * model.m * model.g / qS
+        n = max(0.0, min(ceiling, n))
+        CL = n * weight / qS
         alpha_c = (CL - model.CL0) / model.CLa
         q_c = model.g / V * (n - math.cos(phi) * math.cos(gamma))     # steady pull-up/turn
         lon = model.aircraft.longitudinal
@@ -158,6 +176,14 @@ class CourseAutopilot:
 
         delta_n = -g.sideslip * out["beta"]
 
-        drag = qS * (model.CDmin + model.k * CL * CL)
-        thrust = drag + model.m * (g.speed * (c.speed - V) + model.g * math.sin(gamma))
+        if math.isinf(c.speed):
+            thrust = math.inf                                   # full throttle
+        else:
+            drag = qS * (model.CDmin + model.k * CL * CL)
+            thrust = drag + model.m * (g.speed * (c.speed - V) + model.g * math.sin(gamma))
+        if self.thrust_table is not None:
+            thrust = max(0.0, min(thrust, self.thrust_table.max_thrust(V)))
+            throttle = self.thrust_table.throttle_for(thrust, V)
+            self.telemetry = {"throttle": throttle,
+                              "current": self.thrust_table.current(throttle, V)}
         return thrust, delta_m, delta_l, delta_n
