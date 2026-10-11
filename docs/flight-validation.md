@@ -4,8 +4,10 @@ Living record of how the tool's predictions compare with measurements from the r
 aircraft. Everything else in this repository is verified against other models (the course
 case study and XFLR5); this is the only check against reality.
 
-**Status, 2026-10-11: one comparison made (Mission 2 energy: the model is about a quarter
-low); otherwise paused until more flight data is available.** Ishan will fly
+**Status, 2026-10-11: two comparisons made.** Level top speed from the Mission 1 log
+agrees with the model (29.1 m/s measured, 29.8 m/s modelled). Energy for a reported
+Mission 2 flight does not (model about a quarter low), and the cause is not in the
+aerodynamics. Mode validation is still waiting for dedicated test manoeuvres. Ishan will fly
 dedicated test manoeuvres once back at school; until then nothing further is built on the
 existing log. No model-versus-flight comparison has been made yet. One flight log has been
 examined. It cannot confirm the predicted modes, for the reasons below. What
@@ -18,7 +20,9 @@ explicit rather than implied.
 |---|---|---|---|
 | Static thrust, four tests | 37.5-46.0 N | 49.8-55.5 N uncalibrated | Model 20-33% high; corrected by one factor |
 | Static current, four tests | 44.7-60.4 A | 50.8-55.0 A | Within -9% to +14% |
-| Mission 2, eight laps, whole flight | pack at about 2%: about 4.4 Ah | about 3.2 Ah | Model about a quarter low; points at top speed being over-predicted |
+| Level top speed, Mission 1 (flight log) | about 29.1 m/s (65 mph) | 29.8 m/s | Agrees within 3%, on about 7 s of data |
+| Excess power at 23-25 m/s, full throttle (flight log) | about +5 m/s | +8 to +10 m/s | Model about twice the flight; thin data |
+| Mission 2, eight laps, whole flight | pack at about 2%: about 4.4 Ah | about 3.2 Ah | Model about a quarter low; not explained by speed or drag |
 | Mission 2 takeoff roll (report's prediction, not a measurement) | 7.55 m at 12.17 m/s | 7.46 m at 12.16 m/s | Agrees |
 | Natural modes | none usable | | No comparison possible yet |
 | Lap time, top speed | none measured | | No comparison possible yet |
@@ -93,10 +97,10 @@ that day is not known).
 and wind for under 0.1 Ah, so they do not explain the gap. The model under-predicts the
 energy used on this flight by about a quarter.
 
-**The most consistent explanation: the real aircraft is slower than the model.** The
-motor's current at full throttle depends strongly on airspeed, because the propeller
-unloads as speed rises: in the model 50 A at 20 m/s, 45 A at 25 m/s, 38 A at 30 m/s. An
-aircraft that tops out lower therefore draws more current as well as taking longer.
+**An explanation that was considered and then ruled out: a slower aircraft.** The motor's
+current at full throttle depends strongly on airspeed, because the propeller unloads as
+speed rises: in the model 50 A at 20 m/s, 45 A at 25 m/s, 38 A at 30 m/s. A draggier
+aircraft that topped out near 26-27 m/s would use about 4.0 Ah for this flight:
 
 | Change to the model (3.0 g, 5 m/s wind) | Top speed | 8 laps done at | After landing | Share of reported |
 |---|---|---|---|---|
@@ -106,38 +110,93 @@ aircraft that tops out lower therefore draws more current as well as taking long
 | Thrust factor 0.65 instead of 0.80 | 29.6 m/s | 293 s | 3.51 Ah | 80% |
 | Drag +50% and thrust factor 0.65 | 26.7 m/s | 303 s | 4.02 Ah | 91% |
 
-A top speed near 26-27 m/s, against the model's 31 m/s, brings the energy to about 4.0 Ah
-with eight laps finishing right at five minutes. That picture also fits the one flight
-log on hand (a different flight, Mission 1), where airspeed sat mostly between 20 and
-28 m/s. It would mean the real aircraft has noticeably more drag than the report's CFD
-value, or less thrust in flight than the static calibration implies, or both.
+But the Mission 1 flight log, examined afterwards (next section), puts the level top speed
+at about 29 m/s, within 3% of the model. The aircraft is not materially slower than
+modelled, at least in the Mission 1 configuration, so this is not the explanation.
+Reshaping the model's thrust curve to match the flight's lower excess power at 23-25 m/s
+(next section) changes the Mission 2 energy by only 0.1 Ah.
 
-**What this is not.** It is an inference from one flight remembered without a log, and
-other causes cannot be ruled out:
+**What is left.** With speed and drag confirmed, the gap has to be on the electrical side
+or in how the flight differed from the modelled one:
 
-- Electrical losses the model leaves out (speed controller, wiring, motor losses that rise
-  with RPM) would raise current at every speed. A pack that came down hot is consistent
-  with that as well as with simply being run at about 50 A.
-- Battery voltage in the model is the nominal 22.2 V throughout; a fresh pack starts near
-  25 V, which raises RPM and current early in the flight.
-- A pilot's path is longer than the autopilot's.
+- Current in flight may be higher than the propeller data and motor model give. At rest
+  the model's current is within -9% to +14% of the four static tests, so any error would
+  have to appear in flight, at the higher advance ratios where only the manufacturer's
+  computed propeller data are available.
+- Losses the model leaves out (speed controller, wiring, motor losses that rise with RPM).
+  A pack that came down hot is consistent with that.
+- The pack may have delivered less than its rated 4.5 Ah. A reading of 2% taken from
+  voltage right after a high-current flight does not by itself show that 4.4 Ah was
+  drawn; hot, heavily loaded packs commonly give 80-90% of rating.
+- The flight may have been longer than the modelled one: extra time before the first lap,
+  a wider pattern, a go-around.
 
-**Verdict.** The structure of the model holds up (lap count, takeoff roll, order of
-magnitude of energy), but it is optimistic for this flight by about a quarter on energy,
-and the evidence points at top speed being over-predicted by roughly 15%. No calibration
-has been changed on the strength of this.
+**Verdict.** The model under-predicts the energy used on this flight by about a quarter,
+and the cause is not identified. It is not top speed or drag. No calibration has been
+changed on the strength of this. For planning, treating the model's energy figures as
+about 25% optimistic is the cautious reading.
 
 **What would settle it:**
 
-- A measured level top speed at full throttle. The existing Mission 1 log may already
-  contain one; it has not been examined for this.
-- Current logged in flight (a power module on the Pixhawk, or a watt-meter).
+- Current logged in flight (a power module on the Pixhawk, or a watt-meter). The existing
+  log has no battery current in it.
+- The mAh put back into the pack on recharge.
 - Lap times and the time from throttle-up to landing.
 
 **A side result worth knowing for Mission 2.** In the model, slowing to the corner speed
 before each turn cuts the energy for the flight by about 30% at a 3 g limit (3.23 Ah to
-2.26 Ah) while being slightly faster. If the real aircraft is draggier than modelled, the
-saving is still there, since the turns are where the energy goes.
+2.26 Ah) while being slightly faster. Whatever the cause of the energy gap, the saving
+should carry over in proportion, since it comes from flying a shorter path at lower power.
+
+## Level top speed and excess power from the Mission 1 log
+
+Done on 2026-10-11 at Ishan's request, after he recalled a top speed of about 85 mph.
+Reproduce with:
+
+    python3 -m cases.df1_flight_top_speed
+
+**The 85 mph was a dive.** The highest airspeed in the log is 36.4 m/s (81 mph), at full
+throttle while descending at about 11 m/s with the nose 14-24 deg down.
+
+**Method.** The pilot never held full throttle in steady level flight (0.2 s in the whole
+log), so top speed cannot be read directly. Instead every full-throttle sample near
+wings-level (bank under 25 deg) and near 1 g (within 0.25) gives the specific excess
+power, `Ps = dh/dt + (V/g) dV/dt`: the rate of gaining height plus the rate of gaining
+speed expressed as height. `Ps` is zero at the level top speed. The model's value is
+`(thrust - drag) V / weight`, evaluated at the flight's air density, 1.107 kg/m^3.
+
+**Data.** Full throttle for 34 s of 219 s airborne; 7 s of that passes the filters.
+
+| Airspeed | Samples (10 Hz) | Flight, median Ps | Middle half | Model Ps |
+|---|---|---|---|---|
+| 23.0 m/s | 13 | +5.2 m/s | +5.0 to +5.9 | +9.9 m/s |
+| 25.0 m/s | 14 | +4.8 m/s | +3.6 to +6.8 | +7.7 m/s |
+| 27.0 m/s | 15 | +1.3 m/s | -5.7 to +5.5 | +4.9 m/s |
+| 31.0 m/s | 10 | -1.4 m/s | -4.0 to -0.4 | -2.5 m/s |
+| 32.6 m/s | 9 | -3.5 m/s | -4.6 to -1.5 | -6.3 m/s |
+
+**Result.**
+
+- **Level top speed: about 29.1 m/s (65 mph) from the flight, 29.8 m/s from the model.**
+  Without the 1 g filter the flight value is 28.3 m/s. This is the first agreement between
+  the performance model and measured flight data, and it supports the model's combination
+  of the report's drag (CD0 = 0.059) and the thrust calibrated to the static test, over
+  the report's own top speed of about 34 m/s.
+- **The model has about twice the flight's excess power at 23-25 m/s** (+8 to +10 m/s
+  against about +5 m/s), and somewhat less than the flight above top speed. The real
+  thrust-minus-drag curve looks flatter than the model's. If real, the aircraft
+  accelerates out of turns and climbs more slowly than modelled.
+
+**How far to trust it.** Seven seconds of data, in bins of about one second each, from a
+flight not flown for this purpose. Airspeed is logged at 5 Hz and differentiated. The top
+speed is supported by the sign change of `Ps` between 27 and 31 m/s and is probably good
+to about 2 m/s. The low-speed discrepancy rests on two bins and should be treated as a
+question, not a finding. The log is Mission 1 with the 15x6 propeller; nothing here tests
+Mission 2 or the 14x7 propeller.
+
+**The flight test that would pin this down:** in Manual mode, level, slow to about
+15 m/s, then full throttle held for 10-15 s without climbing. That one pass gives the
+whole excess-power curve and the top speed.
 
 ## What the tool predicts for this flight
 

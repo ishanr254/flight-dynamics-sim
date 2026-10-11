@@ -76,6 +76,7 @@ python3 -m venv venv && ./venv/bin/pip install -r requirements.txt
 ./venv/bin/python -m cases.df1_course       # fly the course at a set speed and turn limit
 ./venv/bin/python -m cases.df1_performance  # propulsion check, envelope, full-throttle limit laps
 ./venv/bin/python -m cases.df1_m2_energy_check  # model vs the reported Mission 2 flight
+./venv/bin/python -m cases.df1_flight_top_speed # level top speed from the flight log vs the model
 ./venv/bin/python -m cases.viewer_scenarios # regenerate viz/data/scenarios.js
 open viz/index.html                          # the viewer (no server needed)
 ./venv/bin/python -m src.aircraft.xflr5 LOG --chord C --aircraft OUT.toml  # XFLR5 log -> aircraft file
@@ -151,7 +152,7 @@ the aircraft-data layer, never inside the solver.
 
 2026-10-11. Linear dynamics (lateral and longitudinal), aerodynamics from geometry,
 control derivatives, a nonlinear 6-DOF model with a course autopilot, performance limits
-from propulsion, drag and structure, and a standalone web viewer are all in place. 180
+from propulsion, drag and structure, and a standalone web viewer are all in place. 185
 tests pass.
 
 - **Dynamics code verified** against two independent sources: the CS7 transport (lateral;
@@ -184,13 +185,14 @@ tests pass.
 - **Flight data:** one DF1 PX4 log is in `data/flight/`. It has been inventoried but not
   compared with the model: it has no hands-off segments, so it cannot confirm the modes.
   `docs/flight-validation.md` is the living record of this and must be kept honest about
-  what has and has not been compared with real data. **Paused** until Ishan flies
-  dedicated test manoeuvres; do not build on the existing log in the meantime.
-  One reported flight outcome has been compared: Mission 2, eight laps, pack down to
-  about 2% (about 4.4 Ah). The model's whole flight (takeoff, laps, landing, wind) uses
-  about 3.2 Ah, a quarter low. Most consistent explanation: the real aircraft is slower
-  than the model's 31 m/s (nearer 26-27 m/s), so the propeller draws more current. No
-  calibration has been changed on this evidence.
+  what has and has not been compared with real data. Mode validation is paused until
+  Ishan flies dedicated test manoeuvres.
+  Two comparisons with real data exist. (1) Level top speed from the Mission 1 log,
+  by excess power at full throttle: about 29.1 m/s against the model's 29.8 m/s (7 s of
+  data). The same data suggest the model has about twice the real excess power at
+  23-25 m/s. (2) A reported Mission 2 flight, eight laps, pack down to about 2% (about
+  4.4 Ah): the model's whole flight uses about 3.2 Ah, a quarter low. Cause not
+  identified; it is not speed or drag. No calibration has been changed on this evidence.
 
 DF1 aircraft files per mission:
 - `df1_m*.toml`: XFLR5 derivatives and inertia. For verifying the solver. No controls.

@@ -79,8 +79,10 @@ speed is 30.6 m/s instead of 29.6.
 
 **Top speed.** The model's 29.6 m/s is below the 34 m/s where the report's climb-rate
 curve reaches zero. The report's curve rests on a thrust model that over-predicted the
-static test, which would explain most of the difference, but this has not been checked
-against a measured level top speed.
+static test. The Mission 1 flight log has since been examined
+(`docs/flight-validation.md`): the level top speed from flight is about 29.1 m/s at that
+day's air density, where the model gives 29.8 m/s. The same data suggest the model has
+too much excess thrust at 23-25 m/s, on thin evidence.
 
 ### Envelope
 
@@ -151,7 +153,8 @@ Step-size check on the 4.5 g full-throttle lap: 32.06 s at 0.01 s steps, 32.08 s
 
 ### What this does not show
 
-Nothing here is checked against a measured lap or a measured top speed. The autopilot's
+Level top speed has been checked against one flight log and agrees. Nothing here is
+checked against a measured lap. The autopilot's
 roll-in and roll-out rates are choices, and a pilot who flies a different line will get a
 different time. The flight log on hand (paused, see `docs/flight-validation.md`) records
 speeds mostly between 20 and 28 m/s, which is at least not in conflict with a top speed
