@@ -8,8 +8,8 @@ import math
 import numpy as np
 import pytest
 
-from cases.df1_performance import (CRUISE, PERFORMANCE, envelope_metrics, fly_limit,
-                                   lap_metrics, setup)
+from cases.df1_performance import (CRUISE, PERFORMANCE, envelope_metrics, fly_at_limit,
+                                   fly_limit, lap_metrics, setup)
 from src.performance import PerformanceDataError, load_performance
 from src.simulate import NonlinearAircraft, simulate_nonlinear
 from src.verify import compare
@@ -134,3 +134,48 @@ def test_limit_lap_time_converges_with_step_size(laps):
     _, performance, autopilot, tr = fly_limit(4.5, dt=0.01)
     assert lap_metrics(performance, autopilot, tr)["lap_time"] == pytest.approx(
         laps[4.5][3]["lap_time"], rel=5e-3)
+
+
+# ---- turn strategy: slowing before the turns
+
+@pytest.fixture(scope="module")
+def strategies():
+    """Report-limit (3.5 g) laps flown full throttle and with a 19 m/s turn-entry speed."""
+    return fly_at_limit(3.5, dt=0.02), fly_at_limit(3.5, 19.0, dt=0.02)
+
+
+def test_structural_limit_argument_caps_the_load(strategies):
+    full, managed = strategies
+    assert full["load_factor_max"] <= 3.5 + 1e-6
+    assert managed["load_factor_max"] <= 3.5 * 1.03      # small transient overshoot allowed
+
+
+def test_entry_speed_is_reached_by_closing_the_throttle(strategies):
+    full, managed = strategies
+    assert full["throttle_closed_time"] == 0.0
+    assert managed["throttle_closed_time"] > 3.0
+    assert managed["speed_min"] == pytest.approx(19.0, abs=1.0)
+    assert managed["speed_max"] == pytest.approx(full["speed_max"], rel=0.02)
+
+
+def test_slowing_for_the_turns_shortens_the_path_and_saves_energy(strategies):
+    full, managed = strategies
+    assert managed["distance"] < 0.9 * full["distance"]
+    assert managed["amp_hours"] < 0.85 * full["amp_hours"]
+    assert managed["time_turning"] < full["time_turning"]
+
+
+def test_slowing_for_the_turns_is_faster_at_the_report_limit(strategies):
+    full, managed = strategies
+    assert 0.5 < full["lap_time"] - managed["lap_time"] < 2.0
+
+
+def test_slowing_far_below_the_corner_speed_costs_time():
+    assert fly_at_limit(4.5, 16.0, dt=0.02)["lap_time"] > fly_at_limit(4.5, dt=0.02)["lap_time"]
+
+
+def test_entry_speed_is_ignored_without_performance_data():
+    """The set-speed course flight has no thrust model, so nothing changes for it."""
+    from src.simulate import CourseAutopilot, load_course
+    autopilot = CourseAutopilot(load_course("data/courses/dbf_2026_m1.toml"))
+    assert autopilot.turn_entry_speed is None

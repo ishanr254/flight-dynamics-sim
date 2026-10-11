@@ -90,40 +90,64 @@ against a measured level top speed.
 - Above the corner speed the structure limits the turn; below it, maximum lift does.
   Thrust limits what can be held without losing speed.
 
-### Full-throttle laps of the course
+### Laps of the course, by structural limit and by turn strategy
 
-Second lap of two, so the lap starts and ends at speed. "Target" is the load factor the
-autopilot aims for in the turns; "peak" is what occurred.
+Second lap of two, so the lap starts and ends at speed. Each row sets the structural
+load-factor limit and lets the autopilot turn up to it. Two strategies: full throttle
+everywhere, and closing the throttle before each turn to enter at a chosen speed, holding
+it through the turn, then full throttle. "Best entry" is the fastest of the entry speeds
+tried (14 to 28 m/s); "corner" is the speed at which the lift the autopilot allows itself
+just reaches its turn target.
 
-| Target | Lap time | Speed range | Peak load factor | Peak angle of attack | Battery per lap |
-|---|---|---|---|---|---|
-| 2.0 | 43.5 s | 28.8-29.6 m/s | 2.08 | 2.3 deg | 0.42 Ah |
-| 2.5 | 38.3 s | 28.1-29.6 m/s | 2.63 | 3.9 deg | 0.37 Ah |
-| 3.0 | 35.4 s | 27.0-29.6 m/s | 3.21 | 6.0 deg | 0.35 Ah |
-| 3.5 | 33.5 s | 25.6-29.6 m/s | 3.88 | 9.0 deg | 0.33 Ah |
-| 4.0 | 32.2 s | 24.2-29.6 m/s | 4.44 | 12.2 deg | 0.32 Ah |
-| 4.5 | 32.1 s | 24.5-29.6 m/s | 4.45 | 11.9 deg | 0.32 Ah |
+| Limit | Full throttle: lap | slowest | battery | Slowing: best entry | corner | lap | saved | battery |
+|---|---|---|---|---|---|---|---|---|
+| 2.0 g | 45.7 s | 28.9 m/s | 0.44 Ah | 14 m/s | 14.3 | 38.5 s | 7.2 s | 0.22 Ah |
+| 2.5 g | 39.8 s | 28.4 m/s | 0.38 Ah | 16 m/s | 16.0 | 36.2 s | 3.6 s | 0.23 Ah |
+| 3.0 g | 36.4 s | 27.5 m/s | 0.36 Ah | 17 m/s | 17.5 | 34.5 s | 1.9 s | 0.24 Ah |
+| 3.5 g | 34.4 s | 26.6 m/s | 0.34 Ah | 19 m/s | 18.9 | 33.4 s | 1.0 s | 0.25 Ah |
+| 4.0 g | 33.0 s | 25.7 m/s | 0.33 Ah | 21 m/s | 20.2 | 32.5 s | 0.6 s | 0.26 Ah |
+| 4.5 g | 32.1 s | 24.5 m/s | 0.32 Ah | 23 m/s | 21.4 | 31.7 s | 0.4 s | 0.28 Ah |
+
+At the 4.5 g limit the optimum is flat: entry speeds from 21 to 26 m/s are all within
+0.1 s of the best. Slowing to 22 m/s shortens the lap's path from 911 m to 826 m and the
+time spent turning from 9.7 s to 8.3 s, at the cost of 5.4 s per lap with the throttle
+closed.
 
 What this says:
 
-- **How hard the turns are flown matters far more than top speed.** Going from 2 g to 3 g
-  turns saves 8 s a lap; removing the thrust calibration (a 20% thrust increase) saves
-  0.6 s on the hardest-turn lap.
-- **Returns diminish above about 3.5 g.** From 3.5 to 4.5 the gain is 1.4 s, because the
-  harder turn costs more speed (the aircraft slows to about 24.5 m/s) that then has to be
-  won back on the straight. The report's 3.5 g structural limit would cost about 1.4 s a
-  lap against the 4.5 used here.
-- **The hard-turn laps exceed their target**: peak load factor runs about 10% over the
-  target because holding altitude in the turn adds load. Targets of 4.0 and 4.5 therefore
-  give the same lap, both capped by the 4.5 structural limit.
-- **Lift is not the limit on this course.** Peak lift coefficient is 0.95 of 1.41.
-- **Energy is not the limit for Mission 1.** A lap uses 0.32-0.42 Ah of 3.57 Ah usable,
-  eight or more laps on a charge against three required. Harder turns use less energy per
-  lap because the lap is shorter.
-- **The report's predicted lap time of 35.0 s** (Table 5.5.1) corresponds here to turns of
-  about 3 g.
+- **The load-factor limit is the main lever.** At full throttle, raising it from 2 g to
+  3 g saves 9 s a lap; from 3.5 g (the report's limit) to 4.5 g saves 2.3 s. A 20% thrust
+  increase (removing the calibration) saves 0.5 s.
+- **Slowing for the turns is faster, and the best entry speed is the corner speed.** In
+  every row the best entry speed found lies within about 1.5 m/s of the corner speed for
+  that limit. This is the textbook result, and here it comes out of the simulation
+  rather than being put in.
+- **It pays more the lower the limit.** At 4.5 g it is worth 0.4 s (1%); at the report's
+  3.5 g, 1.0 s (3%); at 2 g, 7 s (16%). A structurally limited aircraft gains most from
+  being flown this way.
+- **It is always much lighter on the battery**: 14% less per lap at 4.5 g, 26% at 3.5 g,
+  about half at 2 g. For a mission scored on laps in a time window with a battery limit,
+  that matters more than the time.
+- **Lift is not the limit on this course at full throttle** (peak lift coefficient 0.95 of
+  1.41), and **energy is not the limit for Mission 1** (a lap uses about a tenth of the
+  3.57 Ah usable).
+- **The report's predicted lap time of 35.0 s** (Table 5.5.1) corresponds here to a limit
+  of about 3.3 g flown at full throttle.
 
-Step-size check on the hardest lap: 32.10 s at 0.01 s steps, 32.08 s at 0.005 s.
+Caveats specific to this comparison:
+
+- With the throttle closed the propeller is taken to give zero thrust. A windmilling
+  propeller adds drag, so the real aircraft slows down faster than modelled, which would
+  favour the slowing strategy a little more.
+- In the slow-entry laps altitude sags by up to 4 m in the turns, and at the lower limits
+  the peak load factor overshoots the limit by up to 2.5%. The autopilot is not tuned for
+  low-speed turns.
+- The differences between strategies at 4.5 g (0.4 s) are small compared with what a
+  different pilot line or autopilot tuning would change. The differences at lower limits
+  are large enough to be robust to that.
+
+Step-size check on the 4.5 g full-throttle lap: 32.06 s at 0.01 s steps, 32.08 s at
+0.005 s.
 
 ### What this does not show
 
@@ -138,6 +162,5 @@ near 30 m/s.
 - Missions 2 and 3: payload mass, the 14x7 propeller and 4000 mAh pack, banner drag.
 - Scoring and the five-minute window.
 - Design sweeps: mass, CG, propeller, wing area against lap time and handling.
-- A smarter turn strategy (slowing toward the corner speed before a turn) to test whether
-  the autopilot's "full throttle everywhere" is actually fastest.
+- Windmilling-propeller drag with the throttle closed; trading height for speed in turns.
 - Battery voltage that falls with discharge; measured motor constants.

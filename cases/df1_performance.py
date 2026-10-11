@@ -2,8 +2,9 @@
 
 1. Propulsion model against the static thrust test.
 2. Performance envelope (stall, top speed, turn limits, endurance) against the report.
-3. Full-throttle laps of the course at a range of turn load factors: lap time, speed lost
-   in the turns, peak loads and battery use.
+3. Laps of the course for a range of structural load-factor limits, flown two ways: full
+   throttle everywhere, and slowing to a chosen speed before each turn. Lap time, speed
+   lost in the turns, peak loads and battery use.
 Figures are written to output/df1/.
 """
 
@@ -28,7 +29,9 @@ from src.viz import scenario
 PERFORMANCE = "data/performance/df1_m1.toml"
 OUTPUT = Path("output/df1")
 CRUISE = 27.70                       # m/s: the report's cruise speed, 90.88 ft/s
-TURN_LOAD_FACTORS = (2.0, 2.5, 3.0, 3.5, 4.0, 4.5)
+LOAD_FACTOR_LIMITS = (2.0, 2.5, 3.0, 3.5, 4.0, 4.5)
+# m/s, turn-entry speeds tried
+ENTRY_SPEEDS = (28.0, 26.0, 24.0, 23.0, 22.0, 21.0, 20.0, 19.0, 18.0, 17.0, 16.0, 15.0, 14.0)
 # quicker roll-in and roll-out than the default pilot, for flying at the limits
 LIMIT_GAINS = Gains(heading=2.5, bank_rate=math.radians(180.0))
 
@@ -57,8 +60,13 @@ def envelope_metrics(performance, envelope):
     }
 
 
-def fly_limit(turn_load_factor, laps=2, dt=0.01, thrust_factor=None, structural_limit=None):
-    """Full throttle throughout; turns aim for turn_load_factor within the aircraft's limits."""
+def fly_limit(turn_load_factor, laps=2, dt=0.01, thrust_factor=None, structural_limit=None,
+              turn_entry_speed=None):
+    """Full throttle; turns aim for turn_load_factor within the aircraft's limits.
+
+    turn_entry_speed: if given, the throttle is closed before each turn to arrive at this
+    speed, which is then held through the turn.
+    """
     aircraft, condition, performance, table, _ = setup(thrust_factor)
     if structural_limit is not None:
         performance = replace(performance, load_factor_limit=structural_limit)
@@ -66,7 +74,8 @@ def fly_limit(turn_load_factor, laps=2, dt=0.01, thrust_factor=None, structural_
                      laps=laps)
     model = NonlinearAircraft(aircraft, condition, deflection_max=course.deflection_max,
                               performance=performance)
-    autopilot = CourseAutopilot(course, LIMIT_GAINS, performance, table)
+    autopilot = CourseAutopilot(course, LIMIT_GAINS, performance, table,
+                                turn_entry_speed=turn_entry_speed)
     trajectory = simulate_nonlinear(model, 600.0, dt, controller=autopilot,
                                     x0=model.trim_state(altitude=course.altitude),
                                     stop=lambda: autopilot.finished)
@@ -79,8 +88,15 @@ def lap_metrics(performance, autopilot, tr):
     lap = (tr.t >= start) & (tr.t <= end)
     amp_hours = float(np.trapezoid(tr["current"][lap], tr.t[lap]) / 3600.0)
     usable = performance.powertrain.battery.usable_ah
+    distance = float(np.trapezoid(tr["ground_speed"][lap], tr.t[lap]))
+    turning = lap & (np.abs(tr["phi"]) > math.radians(30.0))
     return {
         "lap_time": end - start,
+        "distance": distance,
+        "time_turning": float(turning.sum() * (tr.t[1] - tr.t[0])),
+        "speed_in_turns": float(tr["V"][turning].mean()),
+        "throttle_closed_time": float(((tr["throttle"] < 0.02) & lap).sum()
+                                      * (tr.t[1] - tr.t[0])),
         "speed_min": float(tr["V"][lap].min()), "speed_max": float(tr["V"][lap].max()),
         "load_factor_max": float(tr["load_factor"][lap].max()),
         "bank_max_deg": math.degrees(np.abs(tr["phi"][lap]).max()),
@@ -94,15 +110,45 @@ def lap_metrics(performance, autopilot, tr):
     }
 
 
+def fly_at_limit(limit, turn_entry_speed=None, **kwargs):
+    """A lap with the structural limit set to `limit` and turns flown up to it."""
+    _, performance, autopilot, tr = fly_limit(limit, structural_limit=limit,
+                                              turn_entry_speed=turn_entry_speed, **kwargs)
+    return lap_metrics(performance, autopilot, tr)
+
+
+def best_entry_speed(limit):
+    """(entry speed, metrics) of the fastest lap among ENTRY_SPEEDS."""
+    return min(((speed, fly_at_limit(limit, speed)) for speed in ENTRY_SPEEDS),
+               key=lambda pair: pair[1]["lap_time"])
+
+
 def sweep_table(rows):
-    lines = [f"{'target':>6} {'lap (s)':>8} {'speed (m/s)':>13} {'peak n':>7} {'bank':>5} "
-             f"{'peak alpha':>10} {'peak CL':>8} {'Ah/lap':>7} {'laps on battery':>15}",
-             "-" * 88]
-    for n, m in rows:
+    """rows: (limit, full-throttle metrics, best entry speed, its metrics, corner speed)."""
+    lines = [f"{'':>6} |{'full throttle everywhere':^36}|{'slowing for the turns':^53}",
+             f"{'limit':>6} | {'lap (s)':>7} {'slowest':>8} {'peak n':>7} {'Ah/lap':>7}  | "
+             f"{'entry':>6} {'corner':>7} {'lap (s)':>7} {'saved':>6} {'peak n':>7} {'Ah/lap':>7}",
+             "-" * 98]
+    for limit, full, entry, managed, corner in rows:
         lines.append(
-            f"{n:>6.1f} {m['lap_time']:>8.1f} {m['speed_min']:>6.1f}-{m['speed_max']:<6.1f} "
-            f"{m['load_factor_max']:>7.2f} {m['bank_max_deg']:>4.0f}° {m['alpha_max_deg']:>9.1f}° "
-            f"{m['CL_max']:>8.2f} {m['amp_hours']:>7.3f} {m['laps_on_battery']:>15.1f}")
+            f"{limit:>5.1f}g | {full['lap_time']:>7.2f} {full['speed_min']:>7.1f}  "
+            f"{full['load_factor_max']:>7.2f} {full['amp_hours']:>7.3f}  | {entry:>5.0f}  "
+            f"{corner:>6.1f}  {managed['lap_time']:>7.2f} "
+            f"{full['lap_time'] - managed['lap_time']:>6.2f} "
+            f"{managed['load_factor_max']:>7.2f} {managed['amp_hours']:>7.3f}")
+    return "\n".join(lines)
+
+
+def entry_speed_table(limit):
+    lines = [f"{'entry (m/s)':>11} {'lap (s)':>8} {'path (m)':>9} {'time turning':>13} "
+             f"{'speed in turns':>15} {'throttle closed':>16} {'Ah/lap':>7} {'lowest alt':>11}",
+             "-" * 97]
+    for speed in (None,) + ENTRY_SPEEDS:
+        m = fly_at_limit(limit, speed)
+        lines.append(
+            f"{'none' if speed is None else format(speed, '.0f'):>11} {m['lap_time']:>8.2f} "
+            f"{m['distance']:>9.0f} {m['time_turning']:>11.1f} s {m['speed_in_turns']:>11.1f} m/s "
+            f"{m['throttle_closed_time']:>14.1f} s {m['amp_hours']:>7.3f} {m['altitude_min']:>9.1f} m")
     return "\n".join(lines)
 
 
@@ -139,36 +185,40 @@ def envelope_figure(envelope, performance):
 
 
 def sweep_figure(rows):
-    n = [r[0] for r in rows]
+    limits = [r[0] for r in rows]
     fig, axes = plt.subplots(1, 3, figsize=(12, 3.6))
-    axes[0].plot(n, [r[1]["lap_time"] for r in rows], "o-")
+    for index, label in ((1, "full throttle everywhere"), (3, "slowing for the turns")):
+        axes[0].plot(limits, [r[index]["lap_time"] for r in rows], "o-", label=label)
+        axes[1].plot(limits, [r[index]["speed_min"] for r in rows], "o-", label=label)
+        axes[2].plot(limits, [r[index]["amp_hours"] for r in rows], "o-", label=label)
     axes[0].set_ylabel("lap time (s)")
-    axes[1].plot(n, [r[1]["speed_min"] for r in rows], "o-", label="slowest")
-    axes[1].plot(n, [r[1]["speed_max"] for r in rows], "o-", label="fastest")
-    axes[1].set_ylabel("speed during the lap (m/s)")
-    axes[1].legend()
-    axes[2].plot(n, [r[1]["amp_hours"] for r in rows], "o-")
+    axes[1].set_ylabel("slowest speed in the lap (m/s)")
     axes[2].set_ylabel("battery used per lap (Ah)")
     for ax in axes:
-        ax.set_xlabel("turn load factor")
+        ax.set_xlabel("structural load-factor limit")
         ax.grid(alpha=0.3)
-    fig.suptitle("DF1 Mission 1 at full throttle: effect of how hard the turns are flown")
+    axes[0].legend(fontsize=8)
+    fig.suptitle("DF1 Mission 1: effect of the load-factor limit and of slowing for the turns")
     fig.tight_layout()
     fig.savefig(OUTPUT / "limit_lap_sweep.png", dpi=130)
     plt.close(fig)
 
 
-def limit_scenario(laps=3):
-    """The full-throttle flight at the structural limit, as a viewer scenario."""
+def limit_scenario(laps=3, turn_entry_speed=None):
+    """A flight at the structural limit as a viewer scenario: full throttle everywhere, or
+    slowing to turn_entry_speed before each turn."""
     _, _, performance, _, _ = setup()
     n = performance.load_factor_limit
-    course, performance, autopilot, tr = fly_limit(n, laps=laps)
+    course, performance, autopilot, tr = fly_limit(n, laps=laps,
+                                                   turn_entry_speed=turn_entry_speed)
     summary = lap_summary(course, autopilot, tr)
     m = lap_metrics(performance, autopilot, tr)
     lines = [
         f"Laps: {laps}, total {summary['total_time']:.1f} s "
         f"({', '.join(f'{lap:.1f}' for lap in summary['laps'])} s)",
-        f"Full throttle; speed {m['speed_min']:.1f}-{m['speed_max']:.1f} m/s",
+        (f"Throttle closed before each turn to enter at {turn_entry_speed:g} m/s; "
+         if turn_entry_speed else "Full throttle; ")
+        + f"speed {m['speed_min']:.1f}-{m['speed_max']:.1f} m/s",
         f"Peak load factor {m['load_factor_max']:.2f} (structural limit {n:g}), bank "
         f"{m['bank_max_deg']:.0f}°",
         f"Peak angle of attack {m['alpha_max_deg']:.1f}°, peak lift coefficient "
@@ -180,11 +230,23 @@ def limit_scenario(laps=3):
     events += [(time, f"Lap {i + 1} complete") for i, time in enumerate(autopilot.lap_times)]
     ground = {"half_length": course.half_length, "downwind_east": summary["downwind_offset_m"],
               "altitude": course.altitude}
+    if turn_entry_speed:
+        identifier, title = "df1-m1-fastest", (
+            f"DF1 Mission 1: fastest lap found (slow to {turn_entry_speed:g} m/s for turns)")
+        description = (
+            f"Three laps with the throttle closed before each turn so the aircraft enters "
+            f"at {turn_entry_speed:g} m/s, turns at the {n:g} g structural limit, then full "
+            "throttle. Slightly faster than full throttle everywhere and much lighter on "
+            "the battery.")
+    else:
+        identifier, title = "df1-m1-limit", (
+            f"DF1 Mission 1: full throttle, {n:g} g turns")
+        description = (
+            f"Three laps at full throttle, with turns flown at the {n:g} g structural limit. "
+            "Speed, turn radius and lap time are outputs of the propulsion, drag and "
+            "structural models.")
     return scenario(
-        tr, "df1-m1-limit", f"DF1 Mission 1: flown at the limits ({n:g} g turns)", "Course",
-        f"Three laps at full throttle, with turns flown at the {n:g} g structural limit. "
-        "Speed, turn radius and lap time are outputs of the propulsion, drag and "
-        "structural models.",
+        tr, identifier, title, "Course", description,
         span=GEOMETRY_SPAN, summary=lines, events=sorted(events), ground=ground)
 
 
@@ -210,18 +272,23 @@ def main():
     n_top = envelope.sustained_load_factor(0.95 * envelope.top_speed)
     print(f"Sustained load factor at 95% of top speed: {n_top:.2f}")
 
-    print("\nFull-throttle laps, by how hard the turns are flown (second lap of two):")
+    print("\nLaps by structural load-factor limit (second lap of two):")
     rows = []
-    for n in TURN_LOAD_FACTORS:
-        _, perf, autopilot, tr = fly_limit(n)
-        rows.append((n, lap_metrics(perf, autopilot, tr)))
+    for limit in LOAD_FACTOR_LIMITS:
+        entry, managed = best_entry_speed(limit)
+        # speed at which the lift the autopilot allows itself just reaches its turn target
+        corner = envelope.stall_speed * math.sqrt(0.93 * limit / 0.85)
+        rows.append((limit, fly_at_limit(limit), entry, managed, corner))
     print(sweep_table(rows))
 
-    print("\nSensitivity of the hardest-turn lap:")
+    limit = performance.load_factor_limit
+    print(f"\nTurn-entry speed at the {limit:g} g limit:")
+    print(entry_speed_table(limit))
+
+    print(f"\nSensitivity of the full-throttle lap at {limit:g} g:")
     for label, kwargs in (("thrust calibration removed", {"thrust_factor": 1.0}),
                           ("step halved (0.005 s)", {"dt": 0.005})):
-        _, perf, autopilot, tr = fly_limit(TURN_LOAD_FACTORS[-1], **kwargs)
-        print(f"  {label:28} lap {lap_metrics(perf, autopilot, tr)['lap_time']:.2f} s")
+        print(f"  {label:28} lap {fly_at_limit(limit, **kwargs)['lap_time']:.2f} s")
 
     envelope_figure(envelope, performance)
     sweep_figure(rows)

@@ -150,7 +150,7 @@ the aircraft-data layer, never inside the solver.
 
 2026-10-11. Linear dynamics (lateral and longitudinal), aerodynamics from geometry,
 control derivatives, a nonlinear 6-DOF model with a course autopilot, performance limits
-from propulsion, drag and structure, and a standalone web viewer are all in place. 158
+from propulsion, drag and structure, and a standalone web viewer are all in place. 164
 tests pass.
 
 - **Dynamics code verified** against two independent sources: the CS7 transport (lateral;
@@ -167,14 +167,16 @@ tests pass.
   chosen speed and load-factor limit; it is not a competition prediction.
 - **Performance limits** (R11): propulsion (APC propeller tables, motor, battery;
   thrust calibrated to the static test), the report's drag polar, CL_max and a 4.5 g
-  structural limit. DF1 Mission 1: top speed 29.6 m/s; full-throttle lap 43.5 s with 2 g
-  turns, 35.4 s at 3 g, 32.1 s at the structural limit. Turn hardness matters far more
-  than thrust; returns diminish above about 3.5 g. Not checked against a measured lap.
+  structural limit. DF1 Mission 1: top speed 29.6 m/s; full-throttle lap 32.1 s at the
+  4.5 g limit, 34.4 s at the report's 3.5 g, 45.7 s at 2 g. The load-factor limit matters
+  far more than thrust. Slowing to about the corner speed before each turn is faster
+  (31.7 s at 4.5 g; worth more at lower limits) and uses much less battery. Not checked
+  against a measured lap.
 - **Two drag models coexist on purpose:** linear modes and the set-speed course flight
   use the aircraft file's (low, XFLR5-based) drag so they stay comparable with XFLR5;
   anything about performance uses `data/performance/*.toml`.
-- **Viewer** (`viz/`): plays the limit lap and the set-speed lap with chase, tower, top
-  and orbit cameras.
+- **Viewer** (`viz/`): plays the fastest lap found, the full-throttle limit lap and the
+  set-speed lap, with chase, tower, top and orbit cameras.
 - **Flight data:** one DF1 PX4 log is in `data/flight/`. It has been inventoried but not
   compared with the model: it has no hands-off segments, so it cannot confirm the modes.
   `docs/flight-validation.md` is the living record of this and must be kept honest about
@@ -201,7 +203,7 @@ He has said he will deal with that later; do not add further third-party materia
 
 Open, in order:
 0. Performance follow-ups, if wanted (items 5-6 of the usefulness list): Missions 2 and 3,
-   scoring and the five-minute window, design sweeps, a smarter turn strategy.
+   scoring and the five-minute window, design sweeps.
 1. Stage 4 of `docs/plans/2026-10-11-course-flight-and-visualizer.md`: manoeuvre mode
    (large scripted inputs), scenario picker with natural modes and the second aircraft.
 2. Stage 5: publishing details and user documentation; then vortex-lattice phase 4

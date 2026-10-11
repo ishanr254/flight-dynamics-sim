@@ -67,7 +67,7 @@ def test_viewer_folder_is_self_contained():
 def test_shipped_scenarios_include_the_course_flight():
     text = (VIEWER / "data" / "scenarios.js").read_text()
     scenarios = json.loads(text.split(f"window.{GLOBAL} = ", 1)[1].rstrip().rstrip(";"))
-    assert {s["id"] for s in scenarios} >= {"df1-m1-limit", "df1-m1-course"}
+    assert {s["id"] for s in scenarios} >= {"df1-m1-fastest", "df1-m1-limit", "df1-m1-course"}
     for course in (s for s in scenarios if s["group"] == "Course"):
         assert course["ground"]["half_length"] == pytest.approx(152.4)
         assert any("Lap 3 complete" == label for _, label in course["events"])

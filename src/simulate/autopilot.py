@@ -76,6 +76,9 @@ class CourseAutopilot:
     thrust_table: object = None
     structure_margin: float = 0.93   # fraction of the structural limit aimed for in turns
     lift_margin: float = 0.85        # fraction of maximum lift aimed for in turns
+    # Optional speed management: close the throttle on the approach so the aircraft enters
+    # each turn at this speed, hold it through the turn, then go back to full throttle.
+    turn_entry_speed: float = None
 
     def __post_init__(self):
         self.phase = "upwind"
@@ -135,6 +138,33 @@ class CourseAutopilot:
             return self.target + correction
         return self.target
 
+    def _distance_to_turn(self, out):
+        """Metres left on the current straight before the next turn starts, or None in a turn."""
+        north, half = out["north"], self.course.half_length
+        if self.phase == "upwind":
+            return half - north
+        if self.phase == "downwind_1":
+            return north if self.course.full_turn else north + half
+        if self.phase == "downwind_2":
+            return north + half
+        return None
+
+    def _speed_target(self, out, model, drag_level):
+        """Speed to hold (math.inf for full throttle, 0.0 for throttle closed)."""
+        target = self.course.speed
+        if self.turn_entry_speed is None:
+            return target
+        distance = self._distance_to_turn(out)
+        if distance is None:
+            return self.turn_entry_speed                      # in a turn: hold the entry speed
+        V = out["V"]
+        if V > self.turn_entry_speed:
+            # distance needed to slow down with the throttle closed, at the present drag
+            slowing = (V * V - self.turn_entry_speed ** 2) / (2.0 * drag_level / model.m)
+            if distance <= slowing:
+                return 0.0
+        return target
+
     # ----------------------------------------------------------------- control
     def __call__(self, t, out, model):
         g, c = self.gains, self.course
@@ -176,14 +206,21 @@ class CourseAutopilot:
 
         delta_n = -g.sideslip * out["beta"]
 
-        if math.isinf(c.speed):
+        CL_level = weight / qS
+        speed_target = self._speed_target(
+            out, model, qS * (model.CDmin + model.k * CL_level * CL_level))
+        if math.isinf(speed_target):
             thrust = math.inf                                   # full throttle
+        elif speed_target <= 0.0:
+            thrust = 0.0                                        # throttle closed
         else:
             drag = qS * (model.CDmin + model.k * CL * CL)
-            thrust = drag + model.m * (g.speed * (c.speed - V) + model.g * math.sin(gamma))
+            thrust = drag + model.m * (g.speed * (speed_target - V)
+                                       + model.g * math.sin(gamma))
         if self.thrust_table is not None:
             thrust = max(0.0, min(thrust, self.thrust_table.max_thrust(V)))
-            throttle = self.thrust_table.throttle_for(thrust, V)
+            # zero thrust means the throttle is closed, which draws no current
+            throttle = self.thrust_table.throttle_for(thrust, V) if thrust > 0.0 else 0.0
             self.telemetry = {"throttle": throttle,
                               "current": self.thrust_table.current(throttle, V)}
         return thrust, delta_m, delta_l, delta_n
