@@ -18,7 +18,7 @@ VIEWER = Path("viz")
 
 @pytest.fixture(scope="module")
 def exported():
-    model = NonlinearAircraft(*load_aircraft("data/aircraft/df1_m1_vlm_distributed.toml"))
+    model = NonlinearAircraft(*load_aircraft("data/aircraft/df1_m1_asbuilt.toml"))
 
     def circle(t, out, m):      # hold a little aileron so the heading keeps turning
         return m.thrust_trim, 0.0, math.radians(-0.3), 0.0

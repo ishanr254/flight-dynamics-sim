@@ -20,7 +20,7 @@ from cases.df1_flight_log import LOG, bank_and_pitch_deg, event_time, seconds, t
 from src.aircraft import load_aircraft
 from src.performance import Envelope, load_performance
 
-AIRCRAFT = "data/aircraft/df1_m1_vlm_distributed.toml"
+AIRCRAFT = "data/aircraft/df1_m1_asbuilt.toml"
 PERFORMANCE = "data/performance/df1_m1.toml"
 STEP = 0.1                 # s, common time base
 SMOOTH = 15                # samples (1.5 s) in the smoothing window

@@ -56,7 +56,8 @@ the current speed with a margin from stall.
 
 ## Results
 
-Run `python3 -m cases.df1_performance`. DF1 Mission 1 (2.973 kg).
+Run `python3 -m cases.df1_performance`. DF1 Mission 1 (2.973 kg), as-built geometry
+(the fin at the design report's height; this changes the numbers below by 0.1 s at most).
 
 ### Models against test data and the report
 
@@ -103,11 +104,11 @@ just reaches its turn target.
 
 | Limit | Full throttle: lap | slowest | battery | Slowing: best entry | corner | lap | saved | battery |
 |---|---|---|---|---|---|---|---|---|
-| 2.0 g | 45.7 s | 28.9 m/s | 0.44 Ah | 14 m/s | 14.3 | 38.5 s | 7.2 s | 0.22 Ah |
+| 2.0 g | 45.8 s | 28.9 m/s | 0.44 Ah | 14 m/s | 14.3 | 38.6 s | 7.2 s | 0.22 Ah |
 | 2.5 g | 39.8 s | 28.4 m/s | 0.38 Ah | 16 m/s | 16.0 | 36.2 s | 3.6 s | 0.23 Ah |
-| 3.0 g | 36.4 s | 27.5 m/s | 0.36 Ah | 17 m/s | 17.5 | 34.5 s | 1.9 s | 0.24 Ah |
-| 3.5 g | 34.4 s | 26.6 m/s | 0.34 Ah | 19 m/s | 18.9 | 33.4 s | 1.0 s | 0.25 Ah |
-| 4.0 g | 33.0 s | 25.7 m/s | 0.33 Ah | 21 m/s | 20.2 | 32.5 s | 0.6 s | 0.26 Ah |
+| 3.0 g | 36.5 s | 27.5 m/s | 0.36 Ah | 17 m/s | 17.5 | 34.6 s | 1.9 s | 0.24 Ah |
+| 3.5 g | 34.4 s | 26.6 m/s | 0.34 Ah | 19 m/s | 18.9 | 33.5 s | 1.0 s | 0.25 Ah |
+| 4.0 g | 33.1 s | 25.7 m/s | 0.33 Ah | 21 m/s | 20.2 | 32.5 s | 0.6 s | 0.26 Ah |
 | 4.5 g | 32.1 s | 24.5 m/s | 0.32 Ah | 23 m/s | 21.4 | 31.7 s | 0.4 s | 0.28 Ah |
 
 At the 4.5 g limit the optimum is flat: entry speeds from 21 to 26 m/s are all within

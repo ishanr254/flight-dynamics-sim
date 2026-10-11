@@ -1,4 +1,4 @@
-"""Export nonlinear trajectories as scenarios for the web viewer (viz/).
+"""Export flights as scenarios for the web viewer (viz/).
 
 The viewer is a static page that must open straight from disk, where browsers do not
 allow loading JSON with fetch. Scenarios are therefore written as one JavaScript file that
@@ -9,54 +9,103 @@ quaternion (north-east-down earth axes) so playback can interpolate through any 
 """
 
 import json
+import math
 from pathlib import Path
 
 import numpy as np
 
+from ..simulate.nonlinear import quaternion_from_euler
+
 GLOBAL = "FD_SCENARIOS"
-# column name in the file -> (trajectory key or index into the state, decimals kept)
+# column -> (decimals kept, value used when the source does not provide it)
 COLUMNS = {
-    "north": ("north", 2), "east": ("east", 2), "altitude": ("altitude", 2),
-    "q0": (6, 5), "q1": (7, 5), "q2": (8, 5), "q3": (9, 5),
-    "V": ("V", 2), "phi": ("phi", 4), "theta": ("theta", 4), "psi": ("psi", 4),
-    "alpha": ("alpha", 4), "beta": ("beta", 4), "load_factor": ("load_factor", 3),
-    "thrust": ("thrust", 2), "delta_m": ("delta_m", 4), "delta_l": ("delta_l", 4),
-    "delta_n": ("delta_n", 4), "valid": ("valid", 0),
+    "north": (2, 0.0), "east": (2, 0.0), "altitude": (2, 0.0),
+    "q0": (5, 1.0), "q1": (5, 0.0), "q2": (5, 0.0), "q3": (5, 0.0),
+    "V": (2, 0.0), "phi": (4, 0.0), "theta": (4, 0.0), "psi": (4, 0.0),
+    "alpha": (4, 0.0), "beta": (4, 0.0), "p": (4, 0.0), "q": (4, 0.0), "r": (4, 0.0),
+    "load_factor": (3, 1.0), "thrust": (2, 0.0),
+    "delta_m": (4, 0.0), "delta_l": (4, 0.0), "delta_n": (4, 0.0),
+    "valid": (0, 1.0), "overload": (0, 0.0),
 }
+FLAGS = ("valid", "overload")
 
 
-def scenario(trajectory, identifier, title, group, description, rate=30.0, span=1.0,
-             summary=(), events=(), ground=None):
-    """A viewer scenario from a Trajectory, resampled to `rate` samples per second.
+def scenario_from_series(t, series, identifier, title, group, description, rate=30.0,
+                         span=1.0, summary=(), events=(), ground=None, traces=(),
+                         playback=1.0, exaggeration=None):
+    """A viewer scenario from time series sampled at times t.
 
-    span: wingspan in metres, used to size the aircraft model.
-    summary: lines of text shown beside the animation.
-    events: (time, label) pairs, e.g. course phases.
-    ground: optional dict of ground markings (see viz/README.md).
+    series: column name -> array (see COLUMNS; missing ones take their default). psi must
+    be continuous (unwrapped). span: wingspan in metres, used to size the aircraft model.
+    summary: lines of text shown beside the animation. events: (time, label) pairs.
+    ground: optional course markings. traces: up to three (column, label, unit) to plot,
+    unit "deg" converting from radians. playback: suggested playback speed.
+    exaggeration: how many times life size to draw the aircraft (None lets the page choose).
     """
-    t = trajectory.t
-    samples = np.arange(0.0, t[-1] + 1e-9, 1.0 / rate)
+    t = np.asarray(t, float)
+    samples = np.arange(t[0], t[-1] + 1e-9, 1.0 / rate)
     columns = {}
-    for name, (source, decimals) in COLUMNS.items():
-        values = trajectory.x[:, source] if isinstance(source, int) else trajectory[source]
-        if name == "psi":
-            values = np.unwrap(values)
+    for name, (decimals, default) in COLUMNS.items():
+        values = np.asarray(series[name], float) if name in series else np.full(len(t), default)
         resampled = np.interp(samples, t, values)
-        if name == "valid":
-            resampled = np.round(resampled)
-        columns[name] = [round(float(v), decimals) if decimals else int(v) for v in resampled]
+        if name in FLAGS:
+            columns[name] = [int(round(v)) for v in resampled]
+        else:
+            columns[name] = [round(float(v), decimals) for v in resampled]
     quaternion = np.array([columns[f"q{i}"] for i in range(4)])
     quaternion /= np.linalg.norm(quaternion, axis=0)
     for i in range(4):
         columns[f"q{i}"] = [round(float(v), 5) for v in quaternion[i]]
-    return {
+    out = {
         "id": identifier, "title": title, "group": group, "description": description,
-        "rate": rate, "duration": float(samples[-1]), "span": span,
+        "rate": rate, "duration": float(samples[-1] - samples[0]), "span": span,
         "summary": list(summary),
-        "events": [[round(float(time), 2), label] for time, label in events],
+        "events": [[round(float(time - t[0]), 2), label] for time, label in events],
         "ground": ground or {},
+        "traces": [list(trace) for trace in traces],
+        "playback": playback,
         "columns": columns,
     }
+    if exaggeration is not None:
+        out["exaggeration"] = exaggeration
+    return out
+
+
+def scenario(trajectory, identifier, title, group, description, **kwargs):
+    """A viewer scenario from a nonlinear Trajectory."""
+    series = {name: trajectory[name] for name in COLUMNS if name in trajectory.data}
+    series["psi"] = np.unwrap(trajectory["psi"])
+    for i in range(4):
+        series[f"q{i}"] = trajectory.x[:, 6 + i]
+    return scenario_from_series(trajectory.t, series, identifier, title, group, description,
+                                **kwargs)
+
+
+def lateral_scenario(response, speed, identifier, title, group, description, altitude=1000.0,
+                     controls=None, **kwargs):
+    """A viewer scenario from a linear lateral Response (states beta, r, p, phi).
+
+    The linear model has no position or heading. They are rebuilt by kinematics at constant
+    speed and height: heading is the integral of the yaw rate, and the aircraft moves along
+    heading plus sideslip. This is the small-disturbance picture.
+    """
+    t = response.t
+    dt = np.diff(t, prepend=t[0])
+    psi = np.cumsum(response["r"] * dt)
+    track = psi + response["beta"]
+    series = {
+        "north": np.cumsum(speed * np.cos(track) * dt),
+        "east": np.cumsum(speed * np.sin(track) * dt),
+        "altitude": np.full(len(t), altitude), "V": np.full(len(t), speed),
+        "phi": response["phi"], "psi": psi, "beta": response["beta"],
+        "p": response["p"], "r": response["r"],
+        **(controls or {}),
+    }
+    quaternions = np.array([quaternion_from_euler(phi, 0.0, heading)
+                            for phi, heading in zip(response["phi"], psi)])
+    for i in range(4):
+        series[f"q{i}"] = quaternions[:, i]
+    return scenario_from_series(t, series, identifier, title, group, description, **kwargs)
 
 
 def write_scenarios(path, scenarios, generator):

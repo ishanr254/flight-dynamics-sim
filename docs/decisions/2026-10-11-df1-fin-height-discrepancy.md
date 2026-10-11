@@ -1,6 +1,7 @@
 # DF1: the XFLR5 model's fin is about half the height in the design report
 
-Date: 2026-10-11. Status: **open, awaiting confirmation from Ishan of the as-built fin.**
+Date: 2026-10-11. Status: **resolved the same day. Ishan decided to use the design report's
+geometry for the fin.**
 
 ## Finding
 
@@ -43,8 +44,42 @@ DF1 lateral-directional results (Dutch roll, rudder response, anything fin-drive
 describe the aircraft as built if the report's fin is the real one. Longitudinal results
 and the roll mode are not affected.
 
-## Not yet done
+## Decided
 
-No corrected geometry file has been created. Once the as-built fin is confirmed, add an
-as-built geometry alongside the XFLR5-matched one and use it for results about the
-aircraft, keeping the XFLR5-matched files for verification.
+Use the design report's fin height, 10.24 in (0.2601 m), for everything meant to describe
+the aircraft. Two sets of DF1 geometry now exist:
+
+- `data/geometry/df1_m*.toml`: exactly as in the XFLR5 plane files (5.24 in fin). Used
+  only to compare the tool with XFLR5, where the geometry must be the same on both sides.
+- `data/geometry/df1_m*_asbuilt.toml`: the same import with the fin's tip at 0.2601 m
+  (`src.aero.xflr5_plane --tip-span "Fin=0.2601"`). The rudder still spans the whole fin.
+  The aircraft files `data/aircraft/df1_m*_asbuilt.toml` are computed from these by the
+  built-in lattice, with the distributed-mass inertia, and are what the course flights,
+  performance limits, manoeuvres and natural modes use.
+
+The earlier `df1_m*_vlm_distributed.toml` files (short fin, corrected inertia) are removed.
+
+## What did not change
+
+- Mass, centre of gravity and inertia are still those of the XFLR5 model plus the mass
+  distribution. A taller fin of the same mass moves the CG and inertias very slightly;
+  that is not modelled.
+- The design report's own dynamic-stability and controllability tables came from the
+  short-fin XFLR5 model, so its Dutch-roll and rudder values will not match the as-built
+  results here, and the tool's check against the report's rudder derivatives is still made
+  on the XFLR5 geometry.
+- Longitudinal results, the roll mode, top speed and lap times are essentially unchanged
+  (the full-throttle 4.5 g lap moves from 32.06 s to 32.10 s).
+
+## What did change (Mission 1)
+
+Dutch roll 1.17 Hz to 2.03 Hz, damping ratio 0.13 to 0.21; rudder yawing power 2.7 times
+larger; yaw stiffness and yaw damping about 3 times larger. In the manoeuvres, the same
+6 deg rudder doublet now gives 8 deg of sideslip instead of 13 deg, and the aileron roll
+picks up 1.5 deg of sideslip instead of 5.9 deg.
+
+## Still unverified
+
+Nothing measured confirms either fin height's dynamics. The one flight log shows no
+Dutch-roll peak at either frequency, which is expected in a flight with varying speed and
+continuous pilot input.

@@ -31,9 +31,31 @@ Status 2026-10-11: stages 1-3 done; stopped for review. Results are in
 `docs/decisions/2026-10-11-nonlinear-flight-model.md`; the viewer is described in
 `viz/README.md`.
 
-## Stage 4 — manoeuvre mode (not started)
-- [ ] Scripted large control inputs through the same model, with validity warnings
-- [ ] Scenario picker: Course / Manoeuvres / natural modes; second aircraft
+## Stage 4 — manoeuvre mode (approved 2026-10-11)
+
+Goal: a second mode in the viewer for extreme manoeuvres and responses, with the model
+saying when it is being pushed past what it can represent.
+
+- [x] Record what is flagged and why (`docs/decisions/2026-10-11-manoeuvre-mode.md`)
+- [x] Scripted control inputs through the nonlinear model (steps, pulses, doublets)
+- [x] A simple manoeuvre pilot for manoeuvres that need feedback (bank and load-factor
+      targets): hard turn reversal, loop, approach to the stall
+- [x] Flags carried with every sample: outside the aerodynamic model's valid range
+      (angle of attack, sideslip, lift limit, roll helix angle) and over the structural
+      load limit
+- [x] DF1 manoeuvres: elevator to the stop, aileron roll, rudder doublet, turn reversal,
+      loop, approach to the stall
+- [x] DF1 natural modes from the nonlinear model: short period, phugoid, roll, Dutch roll,
+      spiral
+- [x] Second aircraft: the Case Study 7 transport's Dutch roll, spiral and rudder response,
+      from the linear model
+- [x] Viewer: grouped picker (Course / Manoeuvres / Natural modes / second aircraft),
+      a strip of time traces under the readouts, a structural-limit warning, a suggested
+      playback speed per scenario
+- [x] Tests; documentation of results; stop for review
+
+Status 2026-10-11: stage 4 done; stopped for review. Results are in
+`docs/decisions/2026-10-11-manoeuvre-mode.md`.
 
 ## Stage 5 — publish (not started)
 - [ ] Pages serves the viewer; user documentation

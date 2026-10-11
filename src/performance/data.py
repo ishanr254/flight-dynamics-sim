@@ -17,6 +17,7 @@ class Performance:
     name: str
     CD0: float
     k: float                    # induced-drag factor: CD = CD0 + k CL^2
+    aspect_ratio: float
     CL_max: float
     load_factor_limit: float
     never_exceed_speed: float
@@ -40,6 +41,7 @@ def load_performance(path, rho):
             float(raw.get("calibration", {}).get("thrust_factor", 1.0)))
         performance = Performance(
             name=raw.get("name", path.stem), CD0=float(aero["CD0"]), k=k,
+            aspect_ratio=float(aero["aspect_ratio"]),
             CL_max=float(aero["CL_max"]),
             load_factor_limit=float(structure["load_factor_limit"]),
             never_exceed_speed=float(structure["never_exceed_speed"]),

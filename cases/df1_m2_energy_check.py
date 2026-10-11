@@ -17,7 +17,7 @@ from src.aircraft import load_aircraft
 from src.performance import Envelope, load_performance
 from src.propulsion import Battery, Motor, Powertrain, load_propeller
 
-AIRCRAFT = "data/aircraft/df1_m2_vlm_distributed.toml"
+AIRCRAFT = "data/aircraft/df1_m2_asbuilt.toml"
 PERFORMANCE = "data/performance/df1_m2.toml"
 MASS = 7.228 * 0.45359237      # kg: the report's Mission 2 weight. The XFLR5 model (and so the
 #                                aircraft file) is 0.5 kg heavier; see the mass-distribution record

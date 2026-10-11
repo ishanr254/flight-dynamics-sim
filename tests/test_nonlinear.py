@@ -11,7 +11,7 @@ from src.simulate import (Envelope, ModelError, NonlinearAircraft, simulate,
                           simulate_nonlinear)
 from src.simulate.nonlinear import euler_from_quaternion, quaternion_from_euler
 
-AIRCRAFT = "data/aircraft/df1_m1_vlm_distributed.toml"
+AIRCRAFT = "data/aircraft/df1_m1_asbuilt.toml"
 
 
 @pytest.fixture(scope="module")

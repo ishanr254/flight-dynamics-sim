@@ -126,7 +126,9 @@ def mission_scenario(wind=5.0, laps=3):
         f"From throttle-up at the start line: takeoff roll into a {wind:g} m/s headwind, climb, "
         f"{laps} laps at full throttle with {limit:g} g turns, then a landing circuit and "
         "roll-out. The ground rolls are simplified; there is no flare.",
-        span=GEOMETRY_SPAN, summary=lines, events=sorted(events), ground=ground)
+        span=GEOMETRY_SPAN, summary=lines, events=sorted(events), ground=ground,
+        traces=[("V", "speed (m/s)", ""), ("altitude", "height (m)", ""),
+                ("load_factor", "load factor", "")], rate=20.0)
 
 
 def lap_metrics(performance, autopilot, tr):
@@ -294,7 +296,9 @@ def limit_scenario(laps=3, turn_entry_speed=None):
             "structural models.")
     return scenario(
         tr, identifier, title, "Course", description,
-        span=GEOMETRY_SPAN, summary=lines, events=sorted(events), ground=ground)
+        span=GEOMETRY_SPAN, summary=lines, events=sorted(events), ground=ground,
+        traces=[("V", "speed (m/s)", ""), ("load_factor", "load factor", ""),
+                ("phi", "bank (deg)", "deg")], rate=20.0)
 
 
 def main():

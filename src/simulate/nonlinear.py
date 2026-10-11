@@ -44,6 +44,7 @@ class Envelope:
     alpha_min: float = math.radians(-8.0)
     alpha_max: float = math.radians(12.0)
     beta_max: float = math.radians(15.0)
+    helix_max: float = 0.12     # roll helix angle p b / 2V; checked only when the span is known
 
 
 class NonlinearAircraft:
@@ -77,11 +78,15 @@ class NonlinearAircraft:
         self.k = (self.CL0 - lon.CX_alpha) / (2.0 * self.CL0 * self.CLa)
         self.CDmin = CD0 - self.k * self.CL0 ** 2
         self.CL_max = math.inf
+        self.span = None
+        self.load_factor_limit = math.inf
         self.performance = performance
         if performance is not None:
             self.k, self.CDmin, self.CL_max = performance.k, performance.CD0, performance.CL_max
             # with a lift limit known, the valid range runs up to the angle that reaches it
             self.envelope = replace(envelope, alpha_max=(self.CL_max - self.CL0) / self.CLa)
+            self.span = math.sqrt(performance.aspect_ratio * self.S)
+            self.load_factor_limit = performance.load_factor_limit
             CD0 = self.CDmin + self.k * self.CL0 ** 2
         qS = 0.5 * self.rho * self.V0 ** 2 * self.S
         self.thrust_trim = qS * CD0 + self.m * self.g * math.sin(self.theta0)
@@ -186,14 +191,17 @@ class NonlinearAircraft:
         vd = (2 * (q1 * q3 - q0 * q2) * u + 2 * (q2 * q3 + q0 * q1) * v
               + (1 - 2 * (q1 * q1 + q2 * q2)) * w)
         e = self.envelope
+        load_factor = -Z / (self.m * self.g)
+        helix = abs(p) * self.span / (2.0 * V) if self.span else 0.0
         return {
             "north": north, "east": east, "altitude": -down, "V": V, "alpha": alpha,
             "beta": beta, "phi": phi, "theta": theta, "psi": psi, "p": p, "q": q, "r": r,
-            "load_factor": -Z / (self.m * self.g), "CL": CL,
+            "load_factor": load_factor, "CL": CL,
             "course": math.atan2(ve, vn), "climb_rate": -vd,
             "ground_speed": math.hypot(vn, ve),
             "valid": float(e.alpha_min <= alpha <= e.alpha_max and abs(beta) <= e.beta_max
-                           and abs(CL) < self.CL_max),
+                           and abs(CL) < self.CL_max and helix <= e.helix_max),
+            "overload": float(abs(load_factor) > self.load_factor_limit),
             **dict(zip(CONTROLS, controls)),
         }
 

@@ -23,14 +23,19 @@ let a page opened from disk read JSON with a network request.
 
 ## Controls
 
-- **Scenario**: which flight to play.
+- **Scenario**: which flight to play, in four groups: Course (laps of the competition
+  course), Manoeuvres (large control inputs), Natural modes (the aircraft left alone after
+  a disturbance) and a second aircraft.
 - **Play / Pause, Restart, Speed, Time**: playback; the time slider scrubs.
 - **Camera**: Chase (behind the aircraft), Tower (a pilot standing by the runway), Top
   (the whole course from above, upwind to the left as in the rules figure), Orbit.
 
 The readouts show speed, altitude, bank angle, load factor, control deflections and
-thrust. A red label appears whenever the aircraft is outside the range in which the
-simulator's aerodynamic model is valid. The aircraft is drawn larger than life (the
+thrust, and up to three time traces with a cursor at the present moment. Two red labels
+can appear: one whenever the aircraft is outside the range in which the simulator's
+aerodynamic model is valid (what follows should not be believed), and one whenever the
+load factor is beyond the structural limit. Each scenario sets a suggested playback speed
+when it loads: slow motion for fast motions, faster than life for slow ones. The aircraft is drawn larger than life (the
 factor is shown on screen) so it can be seen against a course several hundred metres long.
 
 ## Scenario format
@@ -45,12 +50,16 @@ factor is shown on screen) so it can be seen against a course several hundred me
 | `summary` | lines of text shown beside the animation |
 | `events` | `[time, label]` pairs, shown under the title as they pass |
 | `ground` | optional course markings: `half_length`, `downwind_east`, `altitude` (m) |
+| `traces` | up to three `[column, label, unit]` to plot; unit `"deg"` converts from radians |
+| `playback` | suggested playback speed (1 is real time) |
+| `exaggeration` | optional: how many times life size to draw the aircraft |
 | `columns` | equally long arrays, one value per sample |
 
 Columns: `north`, `east`, `altitude` (m); `q0`-`q3` (attitude quaternion, body axes to
 north-east-down); `V` (m/s); `phi`, `theta`, `psi`, `alpha`, `beta` (rad; `psi` is
-unwrapped); `load_factor`; `thrust` (N); `delta_m`, `delta_l`, `delta_n` (rad);
-`valid` (1 inside the model's valid range, 0 outside).
+unwrapped); `p`, `q`, `r` (rad/s); `load_factor`; `thrust` (N); `delta_m`, `delta_l`,
+`delta_n` (rad); `valid` (1 inside the model's valid range, 0 outside); `overload` (1 when
+beyond the structural load limit).
 
 ## Axes
 

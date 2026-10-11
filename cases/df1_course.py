@@ -18,7 +18,7 @@ from src.aircraft import load_aircraft
 from src.simulate import CourseAutopilot, NonlinearAircraft, load_course, simulate_nonlinear
 from src.viz import scenario
 
-AIRCRAFT = "data/aircraft/df1_m1_vlm_distributed.toml"
+AIRCRAFT = "data/aircraft/df1_m1_asbuilt.toml"
 GEOMETRY_SPAN = 1.182      # m, DF1 wingspan (data/geometry/df1_m1.toml)
 COURSE = "data/courses/dbf_2026_m1.toml"
 OUTPUT = Path("output/df1")
@@ -132,7 +132,8 @@ def course_scenario():
         "factor of 2. Speed and turn limit here are inputs, and drag is the low XFLR5-based "
         "estimate, so this shows the course and the autopilot, not the aircraft's limits.",
         span=GEOMETRY_SPAN, summary=summary_lines(course, s), events=sorted(events),
-        ground=ground)
+        ground=ground, traces=[("V", "speed (m/s)", ""), ("load_factor", "load factor", ""),
+        ("phi", "bank (deg)", "deg")], rate=20.0,)
 
 
 def main():

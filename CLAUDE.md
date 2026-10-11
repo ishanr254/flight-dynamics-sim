@@ -77,6 +77,7 @@ python3 -m venv venv && ./venv/bin/pip install -r requirements.txt
 ./venv/bin/python -m cases.df1_performance  # propulsion check, envelope, full-throttle limit laps
 ./venv/bin/python -m cases.df1_m2_energy_check  # model vs the reported Mission 2 flight
 ./venv/bin/python -m cases.df1_flight_top_speed # level top speed from the flight log vs the model
+./venv/bin/python -m cases.manoeuvres       # manoeuvres, natural modes, second aircraft
 ./venv/bin/python -m cases.viewer_scenarios # regenerate viz/data/scenarios.js
 open viz/index.html                          # the viewer (no server needed)
 ./venv/bin/python -m src.aircraft.xflr5 LOG --chord C --aircraft OUT.toml  # XFLR5 log -> aircraft file
@@ -152,7 +153,7 @@ the aircraft-data layer, never inside the solver.
 
 2026-10-11. Linear dynamics (lateral and longitudinal), aerodynamics from geometry,
 control derivatives, a nonlinear 6-DOF model with a course autopilot, performance limits
-from propulsion, drag and structure, and a standalone web viewer are all in place. 185
+from propulsion, drag and structure, and a standalone web viewer are all in place. 204
 tests pass.
 
 - **Dynamics code verified** against two independent sources: the CS7 transport (lateral;
@@ -180,8 +181,13 @@ tests pass.
 - **Two drag models coexist on purpose:** linear modes and the set-speed course flight
   use the aircraft file's (low, XFLR5-based) drag so they stay comparable with XFLR5;
   anything about performance uses `data/performance/*.toml`.
-- **Viewer** (`viz/`): plays a whole Mission 1 flight with takeoff and landing, the
-  fastest lap found, the full-throttle limit lap and the set-speed lap.
+- **Manoeuvre mode:** scripted control inputs and a small manoeuvre pilot
+  (`src/simulate/manoeuvre.py`). Every sample is flagged if outside the aerodynamic
+  model's valid range (angle of attack, sideslip, lift limit, roll helix angle) or over
+  the structural load limit. Seven DF1 manoeuvres, five natural modes from the nonlinear
+  model, and three Case Study 7 responses from the linear model.
+- **Viewer** (`viz/`): 19 scenarios in four groups (Course, Manoeuvres, Natural modes,
+  second aircraft), with time traces, two warning labels and a suggested playback speed.
 - **Flight data:** one DF1 PX4 log is in `data/flight/`. It has been inventoried but not
   compared with the model: it has no hands-off segments, so it cannot confirm the modes.
   `docs/flight-validation.md` is the living record of this and must be kept honest about
@@ -194,19 +200,24 @@ tests pass.
   4.4 Ah): the model's whole flight uses about 3.2 Ah, a quarter low. Cause not
   identified; it is not speed or drag. No calibration has been changed on this evidence.
 
-DF1 aircraft files per mission:
+DF1 files. Two geometries exist on purpose:
+- `data/geometry/df1_m*.toml`: exactly the XFLR5 model, whose fin is 5.24 in tall. Only
+  for comparing the tool with XFLR5.
+- `data/geometry/df1_m*_asbuilt.toml`: the same with the fin at the design report's
+  10.24 in (Ishan's decision, 2026-10-11). For anything describing the aircraft.
+
+Aircraft files per mission:
 - `df1_m*.toml`: XFLR5 derivatives and inertia. For verifying the solver. No controls.
 - `df1_m*_distributed.toml`: XFLR5 derivatives, inertia corrected from the design report.
-- `df1_m*_vlm.toml`: lattice derivatives with controls, XFLR5 inertia. For comparing
-  aerodynamics with XFLR5.
-- `df1_m*_vlm_distributed.toml`: lattice derivatives with controls, corrected inertia.
-  The tool's own best description of the aircraft; used for control responses and the
-  course flight.
+- `df1_m*_vlm.toml`: lattice derivatives with controls from the XFLR5 geometry, XFLR5
+  inertia. For comparing aerodynamics with XFLR5.
+- `df1_m*_asbuilt.toml`: lattice derivatives with controls from the as-built geometry,
+  corrected inertia. **The tool's description of the aircraft**; used by the course
+  flights, performance limits, manoeuvres and natural modes. Dutch roll 2.03 Hz
+  (1.17 Hz with the XFLR5 fin).
 
-**Known input problem:** the XFLR5 model's fin is about half the height the design report
-gives (5.24 in vs 10.24 in). Ishan has said to leave it for now. If the report is right,
-DF1's fin-driven results (Dutch roll, rudder response) are well off the real aircraft.
-See `docs/decisions/2026-10-11-df1-fin-height-discrepancy.md`.
+The design report's own stability and controllability tables came from the short-fin
+XFLR5 model, so its Dutch-roll and rudder numbers differ from the as-built results.
 
 **The repository is public** (Ishan's choice, 2026-10-11) and Pages serves the whole repo,
 including `docs/courseNotes/` (course notes and case-study solutions) and the flight log.
@@ -215,10 +226,10 @@ He has said he will deal with that later; do not add further third-party materia
 Open, in order:
 0. Performance follow-ups, if wanted (items 5-6 of the usefulness list): Missions 2 and 3,
    scoring and the five-minute window, design sweeps.
-1. Stage 4 of `docs/plans/2026-10-11-course-flight-and-visualizer.md`: manoeuvre mode
-   (large scripted inputs), scenario picker with natural modes and the second aircraft.
-2. Stage 5: publishing details and user documentation; then vortex-lattice phase 4
-   (product packaging: one installable command).
+1. Stage 5 of `docs/plans/2026-10-11-course-flight-and-visualizer.md`: publishing details
+   and user documentation; then vortex-lattice phase 4 (product packaging: one installable
+   command).
+2. Write-up of R4, R5 and R7 as results; numeric thresholds for the requirements.
 3. Trim at a chosen speed using the elevator; throttle derivative; thrust lapse; wind.
 4. DF1 data: Missions 2 and 3 XFLR5 masses disagree with the design report.
 5. Scope question still open: the five-state course longitudinal form.

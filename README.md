@@ -44,6 +44,7 @@ python3 -m venv venv && ./venv/bin/pip install -r requirements.txt
 ./venv/bin/python -m cases.df1_controls       # control derivatives and control responses
 ./venv/bin/python -m cases.df1_course         # fly the competition course at a set speed
 ./venv/bin/python -m cases.df1_performance    # performance envelope and full-throttle limit laps
+./venv/bin/python -m cases.manoeuvres         # manoeuvres, natural modes, second aircraft
 ./venv/bin/python -m cases.viewer_scenarios   # regenerate the flights the viewer shows
 
 # watch the flight: open viz/index.html in a browser (no server needed)

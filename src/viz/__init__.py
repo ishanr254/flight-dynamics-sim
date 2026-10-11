@@ -1,3 +1,3 @@
-from .export import scenario, write_scenarios
+from .export import lateral_scenario, scenario, scenario_from_series, write_scenarios
 
-__all__ = ["scenario", "write_scenarios"]
+__all__ = ["lateral_scenario", "scenario", "scenario_from_series", "write_scenarios"]

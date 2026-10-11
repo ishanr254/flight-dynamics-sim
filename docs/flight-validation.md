@@ -200,30 +200,35 @@ whole excess-power curve and the top speed.
 
 ## What the tool predicts for this flight
 
-Mission 1 with the distributed-mass inertia, coefficients held at their XFLR5 trim values
-and only speed and density changed to the flight's:
+Mission 1, as-built geometry (the fin at the design report's 10.24 in) with the
+distributed-mass inertia. Coefficients are held at their trim values and only speed and
+density are changed to the flight's:
 
-| | At XFLR5 trim (27.8 m/s, 1.225) | At flight median (24.2 m/s, 1.107) | Over the flight's speed range |
+| | At trim (27.9 m/s, 1.225) | At flight median (24.2 m/s, 1.107) | Over the flight's speed range |
 |---|---|---|---|
-| Dutch roll frequency | 1.14 Hz | 0.94 Hz | 0.61 to 1.42 Hz |
-| Dutch roll damping ratio | 0.13 | 0.12 | about 0.12 to 0.13 |
-| Short-period frequency | 2.76 Hz | 2.26 Hz | 1.45 to 3.41 Hz |
+| Dutch roll frequency | 2.03 Hz | 1.68 Hz | 1.08 to 2.53 Hz |
+| Dutch roll damping ratio | 0.21 | 0.20 | about 0.20 |
+| Short-period frequency | 2.79 Hz | 2.27 Hz | 1.45 to 3.43 Hz |
 | Short-period damping ratio | 0.59 | 0.57 | about 0.57 |
-| Roll time constant | 0.041 s | 0.052 s | 0.035 to 0.082 s |
+| Roll time constant | 0.040 s | 0.051 s | 0.034 to 0.080 s |
+
+With the XFLR5 model's shorter fin the Dutch roll would be 1.17 Hz at trim and 0.94 Hz at
+the flight's median speed (`docs/decisions/2026-10-11-df1-fin-height-discrepancy.md`).
 
 These are indicative only. Holding the coefficients fixed while changing speed is not a
 proper re-trim: lift coefficient, and with it several derivatives, changes with speed. The
-phugoid and spiral are left out of the table because they depend directly on that. A
-correct prediction at a given flight speed needs the lattice to trim at that speed, which
-needs the elevator (phase 3 of the vortex-lattice plan).
+phugoid and spiral are left out of the table because they depend directly on that.
 
 ## Why this log cannot confirm the modes
 
 1. **No free response.** The pilot was on the sticks throughout; there is no window of
    3 s or more with all three held still.
-2. **Pilot inputs sit on top of the Dutch roll.** The strongest components of the measured
-   body rates are at 0.4 to 0.8 Hz. The predicted Dutch roll at the flight's speeds is
-   0.6 to 1.4 Hz, so the two overlap and cannot be separated by looking at a spectrum.
+2. **No Dutch-roll peak stands out.** The strongest components of the measured body
+   rates are pilot inputs at 0.4 to 0.8 Hz. The predicted Dutch roll moves between about
+   1.1 and 2.5 Hz as speed changes through the flight (0.6 to 1.4 Hz with the XFLR5
+   model's shorter fin), so it would be smeared across the spectrum, and the yaw-rate
+   spectrum falls off smoothly with no peak at either. The log neither supports nor
+   contradicts either fin height.
 3. **Large bank angles.** The aircraft was beyond 10 deg of bank for 70% of the flight,
    outside the range where the linear model applies.
 4. **Closed-loop segments.** In Stabilized and Altitude modes (117 s) the autopilot's rate
