@@ -45,3 +45,25 @@ less quickly than the real aircraft would.
 Status 2026-10-11: done. Answer: slowing to about the corner speed is faster, by 0.4 s at
 the 4.5 g limit and more at lower limits, and uses much less battery. The fastest lap
 found (entry at 22 m/s) is in the viewer.
+
+## Follow-up: takeoff, landing and wind (approved 2026-10-11)
+
+Reason: a reported Mission 2 flight (eight laps, pack down to about 2%, hot afterwards)
+used about 4.4 Ah; the model's eight airborne laps use about 3.0 Ah. The model's flight
+had no takeoff, climb, landing or wind, so add them before judging the gap.
+
+- [x] Steady wind in the nonlinear model (air mass moving over the ground)
+- [x] Takeoff per the rules: ground roll from the start line into wind, lift off at
+      1.2 x stall speed (report eq. 25), climb to pattern height during the first lap
+- [x] Landing: after the last lap, one more circuit without the 360, slowing to approach
+      speed, descending on a glide slope to touch down on the runway, then a landing roll
+- [x] Re-run the Mission 2 check with these and a range of wind speeds
+- [x] Compare the takeoff roll with the report's Table 4.4.5
+- [x] Tests; decision record; flight-validation record; viewer scenario
+
+Wind speed for that flight is not known. A default of 5 m/s down the runway is assumed and
+the result is shown for a range.
+
+Status 2026-10-11: done. Takeoff, landing and wind add little energy. The model's whole
+Mission 2 flight uses about 3.2 Ah against about 4.4 Ah reported; see
+`docs/flight-validation.md`.

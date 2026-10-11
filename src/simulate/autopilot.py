@@ -79,6 +79,13 @@ class CourseAutopilot:
     # Optional speed management: close the throttle on the approach so the aircraft enters
     # each turn at this speed, hold it through the turn, then go back to full throttle.
     turn_entry_speed: float = None
+    # Optional landing after the last lap: one more circuit without the 360 deg turn,
+    # slowing to the approach speed and descending to touch down on the runway.
+    land: bool = False
+    approach_factor: float = 1.3             # approach speed / stall speed
+    glide_slope: float = math.radians(5.0)
+    touchdown_north: float = -60.0           # m from the start line, on the runway
+    touchdown_height: float = 0.15           # m: below this on final counts as touchdown
 
     def __post_init__(self):
         self.phase = "upwind"
@@ -94,6 +101,8 @@ class CourseAutopilot:
         self.events = [(0.0, "upwind")]
         self.finished = False
         self.telemetry = {}
+        self.landing = False          # laps done, flying the landing circuit
+        self.touchdown = None         # (time, north) when the wheels touch
 
     # ---------------------------------------------------------------- guidance
     def _advance(self, t, out):
@@ -105,13 +114,16 @@ class CourseAutopilot:
                     and t > 0.0):
                 self.lap_times.append(t)
                 if len(self.lap_times) >= c.laps:
-                    self.finished = True
+                    if self.land and self.performance is not None:
+                        self.landing = True
+                    else:
+                        self.finished = True
             if north >= half:
                 new, self.target = "turn_1", self.base + c.turn_direction * math.pi
         elif self.phase == "turn_1" and captured:
             new, self.downwind_east = "downwind_1", out["east"]
         elif self.phase == "downwind_1" and north <= 0.0:
-            if c.full_turn:
+            if c.full_turn and not self.landing:
                 new, self.target = "full_turn", self.target - c.turn_direction * 2 * math.pi
             else:
                 new = "downwind_2"
@@ -120,7 +132,10 @@ class CourseAutopilot:
         elif self.phase == "downwind_2" and north <= -half:
             new, self.target = "turn_2", self.target + c.turn_direction * math.pi
         elif self.phase == "turn_2" and captured:
-            new, self.base = "upwind", self.target
+            new, self.base = ("final" if self.landing else "upwind"), self.target
+        elif self.phase == "final" and out["altitude"] <= self.touchdown_height:
+            self.touchdown = (t, north)
+            self.finished = True
         if new:
             self.phase = new
             self.events.append((t, new))
@@ -128,9 +143,9 @@ class CourseAutopilot:
     def _heading_command(self, out):
         """Unwrapped heading to steer: the turn target, or the leg heading plus a correction
         that brings the aircraft back onto the leg's line."""
-        if self.phase in ("upwind", "downwind_1", "downwind_2"):
-            line_east = 0.0 if self.phase == "upwind" else self.downwind_east
-            northbound = self.phase == "upwind"
+        if self.phase in ("upwind", "final", "downwind_1", "downwind_2"):
+            northbound = self.phase in ("upwind", "final")
+            line_east = 0.0 if northbound else self.downwind_east
             right_of_line = (out["east"] - line_east) * (1.0 if northbound else -1.0)
             g = self.gains
             correction = max(-g.cross_track_limit,
@@ -149,8 +164,33 @@ class CourseAutopilot:
             return north + half
         return None
 
+    def _approach_speed(self, model):
+        stall = math.sqrt(2.0 * model.m * model.g
+                          / (model.rho * model.S * self.performance.CL_max))
+        return self.approach_factor * stall
+
+    def _descending(self):
+        return self.landing and self.phase in ("downwind_2", "turn_2", "final")
+
+    def _altitude_command(self, out):
+        """Pattern height, or on the landing circuit a glide slope down to the touchdown point."""
+        if not self._descending():
+            return self.course.altitude
+        north, half = out["north"], self.course.half_length
+        final_leg = half + self.touchdown_north
+        radius = abs(self.downwind_east) / 2.0
+        if self.phase == "downwind_2":
+            remaining = (north + half) + math.pi * radius + final_leg
+        elif self.phase == "turn_2":
+            remaining = radius * abs(self.target - self.heading) + final_leg
+        else:
+            remaining = self.touchdown_north - north
+        return max(0.0, min(self.course.altitude, math.tan(self.glide_slope) * remaining))
+
     def _speed_target(self, out, model, drag_level):
         """Speed to hold (math.inf for full throttle, 0.0 for throttle closed)."""
+        if self.landing and self.phase != "upwind" and self.phase != "turn_1":
+            return self._approach_speed(model)
         target = self.course.speed
         if self.turn_entry_speed is None:
             return target
@@ -184,6 +224,10 @@ class CourseAutopilot:
                               self.structure_margin * self.performance.load_factor_limit,
                               self.lift_margin * lift_limit)
             ceiling = min(self.performance.load_factor_limit, 0.97 * lift_limit)
+            if self.landing and self.phase == "turn_2":
+                # turn onto final with the radius that brings the aircraft onto the runway line
+                radius = max(abs(self.downwind_east) / 2.0, 1.0)
+                turn_target = min(turn_target, math.hypot(1.0, V * V / (model.g * radius)))
         bank_limit = math.acos(1.0 / max(turn_target, 1.0001))
         turn_rate = g.heading * (self._heading_command(out) - self.heading)
         wanted = max(-bank_limit, min(bank_limit, math.atan(V * turn_rate / model.g)))
@@ -192,7 +236,8 @@ class CourseAutopilot:
         delta_l = -g.roll * (self.bank_command - phi)
 
         climb = max(-g.climb_rate_limit,
-                    min(g.climb_rate_limit, g.altitude * (c.altitude - out["altitude"])))
+                    min(g.climb_rate_limit,
+                        g.altitude * (self._altitude_command(out) - out["altitude"])))
         gamma = math.asin(max(-1.0, min(1.0, out["climb_rate"] / V)))
         n = (1.0 / max(math.cos(phi), 0.2)
              + g.flight_path * (climb / V - gamma) * V / model.g)

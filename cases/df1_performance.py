@@ -21,8 +21,8 @@ import numpy as np
 from cases.df1_course import AIRCRAFT, COURSE, GEOMETRY_SPAN, PHASE_LABELS, lap_summary
 from src.aircraft import load_aircraft
 from src.performance import Envelope, load_performance
-from src.simulate import (CourseAutopilot, Gains, NonlinearAircraft, load_course,
-                          simulate_nonlinear)
+from src.simulate import (CourseAutopilot, Gains, NonlinearAircraft, fly_mission,
+                          load_course, simulate_nonlinear)
 from src.verify import compare, format_table
 from src.viz import scenario
 
@@ -80,6 +80,53 @@ def fly_limit(turn_load_factor, laps=2, dt=0.01, thrust_factor=None, structural_
                                     x0=model.trim_state(altitude=course.altitude),
                                     stop=lambda: autopilot.finished)
     return course, performance, autopilot, trajectory
+
+
+def whole_mission(aircraft, condition, performance, limit, wind=0.0, laps=3,
+                  turn_entry_speed=None, dt=0.01):
+    """Takeoff roll into a headwind of `wind`, `laps` at full throttle with the structural
+    limit set to `limit`, then a landing circuit. Returns (course, MissionResult, autopilot)."""
+    performance = replace(performance, load_factor_limit=limit)
+    course = replace(load_course(COURSE), speed=math.inf, load_factor_limit=limit, laps=laps)
+    model = NonlinearAircraft(aircraft, condition, deflection_max=course.deflection_max,
+                              performance=performance, wind=(-wind, 0.0))
+    table = performance.powertrain.tabulate()
+    autopilot = CourseAutopilot(course, replace(LIMIT_GAINS, climb_rate_limit=5.0), performance,
+                                table, turn_entry_speed=turn_entry_speed, land=True)
+    return course, fly_mission(model, autopilot, table, dt=dt), autopilot
+
+
+def mission_scenario(wind=5.0, laps=3):
+    """Mission 1 from throttle-up to a stop on the runway, as a viewer scenario."""
+    aircraft, condition, performance, _, _ = setup()
+    limit = performance.load_factor_limit
+    course, result, autopilot = whole_mission(aircraft, condition, performance, limit, wind, laps)
+    tr = result.trajectory
+    amp_hours = float(np.trapezoid(tr["current"], tr.t) / 3600.0)
+    labels = {**PHASE_LABELS, "final": "Final approach"}
+    events = [(0.0, "Takeoff roll"), (result.liftoff_time, "Climb-out")]
+    events += [(time, labels[phase]) for time, phase in autopilot.events if time > result.liftoff_time]
+    events += [(time, f"Lap {i + 1} complete") for i, time in enumerate(autopilot.lap_times)]
+    events += [(result.touchdown_time, "Touchdown and roll-out")]
+    lap_starts = [0.0] + autopilot.lap_times
+    lines = [
+        f"Wind {wind:g} m/s down the runway (assumed)",
+        f"Takeoff roll {result.liftoff_distance:.1f} m, liftoff at {result.liftoff_speed:.1f} m/s",
+        f"Laps from throttle-up: "
+        f"{', '.join(f'{b - a:.1f}' for a, b in zip(lap_starts, lap_starts[1:]))} s",
+        f"Touchdown {result.touchdown_north:.0f} m from the start line at "
+        f"{result.touchdown_time:.0f} s; stopped at {result.stop_north:.0f} m",
+        f"Battery used {amp_hours:.2f} Ah",
+        f"Time outside the aerodynamic model's valid range: {1.0 - tr['valid'].mean():.1%}",
+    ]
+    ground = {"half_length": course.half_length, "downwind_east": autopilot.downwind_east,
+              "altitude": course.altitude}
+    return scenario(
+        tr, "df1-m1-mission", "DF1 Mission 1: whole flight with takeoff and landing", "Course",
+        f"From throttle-up at the start line: takeoff roll into a {wind:g} m/s headwind, climb, "
+        f"{laps} laps at full throttle with {limit:g} g turns, then a landing circuit and "
+        "roll-out. The ground rolls are simplified; there is no flare.",
+        span=GEOMETRY_SPAN, summary=lines, events=sorted(events), ground=ground)
 
 
 def lap_metrics(performance, autopilot, tr):

@@ -1,0 +1,51 @@
+# DF1 Mission 2 performance data. Same airframe as Mission 1 with passengers and cargo,
+# the 14x7 propeller and a different battery. Used to check the model against a reported
+# Mission 2 flight (docs/flight-validation.md).
+# Sources: 2026 Cornell DBF design report (page numbers below) and the propulsion model in
+# the sizing-scoring-26-27 repository. Kept separate from the aircraft file, which holds
+# stability and control data about one trim point.
+
+name = "DF1 Mission 2"
+source = "2026 Cornell DBF design report; sizing-scoring-26-27/src/prop"
+
+[aerodynamics]
+CD0 = 0.059            # as Mission 1: the report found the M1 and M2 polars effectively identical (p.26)
+oswald = 0.75          # Oswald efficiency factor (report p.26)
+aspect_ratio = 3.85    # report Table 5.1.1 (p.29)
+CL_max = 1.41          # the report's Mission 2 stall speed, 33.28 ft/s at 7.228 lb, gives the same value
+
+[structure]
+load_factor_limit = 4.5        # set by Ishan, 2026-10-11. The report states 3.5 (p.30)
+never_exceed_speed = 41.1      # m/s (135 ft/s), read from the report's V-n diagram (Figure 5.1.2, p.30)
+
+[propeller]
+file = "data/propulsion/apc_14x7E.json"    # 14 in x 7 in, Mission 2 (report Table 4.3.2, p.20)
+
+[motor]
+name = "Scorpion SII-4025-520KV"           # report Table 4.3.2
+kv = 520.0             # rpm per volt
+rated_power = 1200.0   # W, as named in the report; used only to estimate Rm and I0
+
+[battery]
+# Ishan reported a 4500 mAh pack for the flight this file is used to check (2026-10-11).
+# The design report lists a Liperior 4000 mAh 6S 30C for Mission 2 (Table 4.3.2).
+name = "4500 mAh 6S (as flown, per Ishan)"
+cells = 6
+capacity_ah = 4.5
+c_rating = 30.0            # assumed; not stated
+usable_fraction = 0.85                     # sizing-scoring-26-27 default
+
+[limits]
+fuse_current = 100.0   # A (report section 4.3.5, p.20)
+
+[calibration]
+# Measured over modelled static thrust for the 14x7 propeller: 0.80 with the 4200 mAh pack
+# and 0.75 with the 4000 mAh pack (report Table 8.1.2). 0.80 is used here.
+thrust_factor = 0.80
+
+# Measurements and predictions to compare the models against. Not used by the models.
+[[reference]]
+metric = "battery_used_for_8_laps_Ah"
+value = 4.5
+kind = "reported by Ishan from memory, 2026-10-11: eight laps flown, pack 'basically used up'. No log, no recharge figure, flight time unknown"
+source = "Mission 2 flight, date not recorded"

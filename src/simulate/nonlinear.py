@@ -48,10 +48,15 @@ class Envelope:
 
 class NonlinearAircraft:
     def __init__(self, aircraft, condition, thrust_max=math.inf,
-                 deflection_max=math.radians(30.0), envelope=Envelope(), performance=None):
+                 deflection_max=math.radians(30.0), envelope=Envelope(), performance=None,
+                 wind=(0.0, 0.0)):
         """performance: optional src.performance.Performance. When given, its drag polar
         replaces the one reconstructed from the aircraft file and lift is capped at its
-        CL_max; the model then no longer linearizes exactly to the linear phugoid."""
+        CL_max; the model then no longer linearizes exactly to the linear phugoid.
+
+        wind: steady velocity of the air mass over the ground, (north, east) in m/s. The
+        body velocities u, v, w are relative to the air; only position is affected."""
+        self.wind = (float(wind[0]), float(wind[1]))
         ac, fc = aircraft, condition
         if ac.lateral is None or ac.longitudinal is None:
             raise ModelError(f"{ac.name}: the nonlinear model needs both [lateral] and "
@@ -158,8 +163,8 @@ class NonlinearAircraft:
         rates = self._inertia_inv @ (L - (q * hz - r * hy), M - (r * hx - p * hz),
                                      N - (p * hy - q * hx))
         return np.array([
-            r11 * u + r12 * v + r13 * w,
-            r21 * u + r22 * v + r23 * w,
+            r11 * u + r12 * v + r13 * w + self.wind[0],
+            r21 * u + r22 * v + r23 * w + self.wind[1],
             r31 * u + r32 * v + r33 * w,
             du, dv, dw,
             0.5 * (-q1 * p - q2 * q - q3 * r),
@@ -175,9 +180,9 @@ class NonlinearAircraft:
         phi, theta, psi = euler_from_quaternion(q0, q1, q2, q3)
         (_, _, Z), _, CL = self.aerodynamics(V, alpha, beta, p, q, r, *controls[1:])
         vn = ((1 - 2 * (q2 * q2 + q3 * q3)) * u + 2 * (q1 * q2 - q0 * q3) * v
-              + 2 * (q1 * q3 + q0 * q2) * w)
+              + 2 * (q1 * q3 + q0 * q2) * w) + self.wind[0]
         ve = (2 * (q1 * q2 + q0 * q3) * u + (1 - 2 * (q1 * q1 + q3 * q3)) * v
-              + 2 * (q2 * q3 - q0 * q1) * w)
+              + 2 * (q2 * q3 - q0 * q1) * w) + self.wind[1]
         vd = (2 * (q1 * q3 - q0 * q2) * u + 2 * (q2 * q3 + q0 * q1) * v
               + (1 - 2 * (q1 * q1 + q2 * q2)) * w)
         e = self.envelope
@@ -209,10 +214,11 @@ class Trajectory:
         return float(1.0 - self.data["valid"].mean())
 
 
-def simulate_nonlinear(model, t_end, dt=0.01, controller=None, x0=None, stop=None):
+def simulate_nonlinear(model, t_end, dt=0.01, controller=None, x0=None, stop=None, t0=0.0):
     """Fixed-step RK4. controller(t, outputs, model) -> controls, held over each step.
 
     stop() is checked after each controller call; when it returns True the run ends there.
+    The run covers t0 to t0 + t_end.
     """
     x = model.trim_state() if x0 is None else np.array(x0, float)
     trim = tuple(model.trim_controls())
@@ -220,7 +226,7 @@ def simulate_nonlinear(model, t_end, dt=0.01, controller=None, x0=None, stop=Non
     times, states, rows = [], [], []
     controls = trim
     for i in range(steps + 1):
-        t = i * dt
+        t = t0 + i * dt
         out = model.outputs(x, controls)
         if controller is not None:
             controls = model.limit(controller(t, out, model))
