@@ -1,4 +1,5 @@
 # Imported by src.aero.xflr5_plane from data/aircraft/Mission 3 Iteration 2.xml and data/aircraft/Mission 3 Iteration 2_T7-VLM2.xml.
+# Control surfaces from data/geometry/df1_controls.toml.
 # Axes: x aft, y to starboard, z up. SI units.
 
 name = "Mission 3 Iteration 2"
@@ -42,6 +43,11 @@ vertical = false
   dihedral_deg = 0.0
   twist_deg = 0.0
   airfoil = "FX 60-126"
+  [[surface.control]]
+  name = "aileron"
+  role = "delta_l"
+  chord_fraction = 0.25
+  span = [0.3157, 0.526]
 
 [[surface]]
 name = "Elevator"
@@ -63,6 +69,11 @@ vertical = false
   dihedral_deg = 3.0
   twist_deg = 0.0
   airfoil = "NACA 0012"
+  [[surface.control]]
+  name = "elevator"
+  role = "delta_m"
+  chord_fraction = 0.3
+  span = [0.0, 0.219]
 
 [[surface]]
 name = "Fin"
@@ -84,3 +95,8 @@ vertical = true
   dihedral_deg = 0.0
   twist_deg = 0.0
   airfoil = "NACA 0012"
+  [[surface.control]]
+  name = "rudder"
+  role = "delta_n"
+  chord_fraction = 0.3
+  span = [0.0, 0.13]

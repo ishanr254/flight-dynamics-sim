@@ -24,9 +24,21 @@ input) and no fuselage aerodynamics.
 Status 2026-10-11: phases 1 and 2 done; stopped for review. Results and method decisions are in
 `docs/decisions/2026-10-11-vortex-lattice-method.md`.
 
-## Phase 3 — control derivatives (not started; needs approval)
-- [ ] Elevator, aileron and rudder deflection
-- [ ] Check against the elevator values in the logs and the report's Table 4.4.4
+## Phase 3 — control derivatives (approved 2026-10-11)
+- [x] Record sign conventions and the modelling approach
+      (`docs/decisions/2026-10-11-control-surfaces.md`)
+- [x] Control surfaces in the geometry file (hinge position, spanwise extent, role)
+- [x] Lattice: mesh lines on hinge lines and control edges; deflection as a rotation of
+      the panel normals aft of the hinge
+- [x] Control derivatives for elevator, aileron and rudder
+- [x] Aircraft file: longitudinal control derivatives; lateral ones filled in
+- [x] Check against the all-moving-tail derivatives in the Mission 1 XFLR5 log
+- [x] Check against the design report's Table 4.4.4
+- [x] Control responses for DF1 (elevator, aileron, rudder inputs) with figures
+- [x] Tests, file-format reference, status
+
+Status 2026-10-11: phase 3 done; stopped for review. Results are in
+`docs/decisions/2026-10-11-control-surfaces.md`.
 
 ## Phase 4 — product packaging (not started; needs approval)
 - [ ] One installable command: geometry to derivatives, modes, simulation, report

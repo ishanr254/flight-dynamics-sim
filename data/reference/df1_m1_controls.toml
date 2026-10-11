@@ -1,0 +1,37 @@
+# DF1 Mission 1 control derivatives from the 2026 Cornell DBF design report, Table 4.4.4
+# (p.25), "Key control derivatives for M1 cruise". The report gives them per degree; they
+# are converted here to per radian. The report says they were "estimated from the moment
+# coefficient curves at varying degrees of control surface deflections" in XFLR5, so they
+# are slopes read from curves, not printed derivatives.
+
+aircraft = "data/geometry/df1_m1.toml"
+
+[[reference]]
+metric = "aileron_rolling_power_Cl_per_rad"
+value = -0.2292
+kind = "design report Table 4.4.4: -0.0040 per deg (moment on span)"
+source = "2026 DBF design report p.25"
+
+[[reference]]
+metric = "elevator_lift_CL_per_rad"
+value = 0.4125
+kind = "design report Table 4.4.4: 0.0072 per deg"
+source = "2026 DBF design report p.25"
+
+[[reference]]
+metric = "elevator_pitching_power_Cm_per_rad"
+value = -1.1803
+kind = "design report Table 4.4.4: -0.0206 per deg (moment on chord)"
+source = "2026 DBF design report p.25"
+
+[[reference]]
+metric = "rudder_side_force_CY_per_rad"
+value = 0.0630
+kind = "design report Table 4.4.4: 0.0011 per deg"
+source = "2026 DBF design report p.25"
+
+[[reference]]
+metric = "rudder_yawing_power_Cn_per_rad"
+value = -0.0458
+kind = "design report Table 4.4.4: -0.0008 per deg (moment on span)"
+source = "2026 DBF design report p.25"

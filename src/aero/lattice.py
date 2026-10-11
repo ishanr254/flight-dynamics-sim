@@ -1,11 +1,19 @@
 """Vortex-ring lattice on the mean camber surface of each lifting surface."""
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 
 from .airfoil import camber_line
+
+# sign of the normal rotation for a positive deflection, by role and by side (+1 starboard)
+# "+1" turns the trailing edge away from the panel normal, which adds lift along the normal
+DEFLECTION_SIGN = {
+    "delta_m": lambda side: 1.0,     # trailing edge down on both halves
+    "delta_l": lambda side: side,    # starboard trailing edge down, port up
+    "delta_n": lambda side: -1.0,    # fin normal points to port; trailing edge to port
+}
 
 
 @dataclass(frozen=True)
@@ -20,31 +28,50 @@ class Lattice:
     control: np.ndarray         # collocation points at the panel three-quarter chord
     normal: np.ndarray
     surface: np.ndarray         # index of the owning surface
+    # role -> (N, 3) change of each panel normal per radian of that control
+    deflection: dict = field(default_factory=dict)
 
     def __len__(self):
         return len(self.A)
 
 
-def _half_stations(sections, n_span):
-    """Spanwise stations from root to tip, uniform within each section interval."""
-    total = sections[-1].span - sections[0].span
-    stations = [(0, 0.0)]
-    for k, (a, b) in enumerate(zip(sections, sections[1:])):
-        n = max(1, round(n_span * (b.span - a.span) / total))
-        stations += [(k, (i + 1) / n) for i in range(n)]
-    return stations
+def _distribute(breaks, n_total):
+    """Nodes with one at every break and about n_total uniform panels in between."""
+    breaks = sorted(breaks)
+    total = breaks[-1] - breaks[0]
+    nodes = [breaks[0]]
+    for a, b in zip(breaks, breaks[1:]):
+        n = max(1, round(n_total * (b - a) / total))
+        nodes += [a + (b - a) * (i + 1) / n for i in range(n)]
+    return np.array(nodes)
 
 
-def surface_grid(surface, n_chord, n_span):
-    """Camber-surface points, shape (n_chord + 1, stations, 3), tip to tip if symmetric."""
+def _unique(values, tolerance=1e-9):
+    out = []
+    for v in sorted(values):
+        if not out or v - out[-1] > tolerance:
+            out.append(v)
+    return out
+
+
+def surface_mesh(surface, n_chord, n_span):
+    """Camber-surface points (chord nodes, stations, 3), tip to tip if symmetric.
+
+    Also returns the chordwise node fractions and the spanwise node positions of one half.
+    Panel edges are placed on every hinge line and every control's spanwise edge.
+    """
     sections = surface.sections
     cambers = [camber_line(s.airfoil) for s in sections]
-    xi = np.linspace(0.0, 1.0, n_chord + 1)
+    root, tip = sections[0].span, sections[-1].span
+    xi = _distribute(_unique([0.0, 1.0] + [1.0 - c.chord_fraction for c in surface.controls
+                                           if c.chord_fraction < 1.0]), n_chord)
+    spans = _distribute(_unique([s.span for s in sections]
+                                + [e for c in surface.controls
+                                   for e in (c.span_from, c.span_to)]), n_span)
     ex = np.array([1.0, 0.0, 0.0])
 
     # leading-edge position of every section, accumulated along the dihedral of each panel
-    roots = [np.zeros(3)]
-    span_dirs = []
+    roots, span_dirs = [np.zeros(3)], []
     for a, b in zip(sections, sections[1:]):
         d = math.radians(a.dihedral_deg)
         e_s = (np.array([0.0, 0.0, 1.0]) if surface.vertical
@@ -53,15 +80,17 @@ def surface_grid(surface, n_chord, n_span):
         roots.append(roots[-1] + (b.span - a.span) * e_s)
 
     columns = []
-    for k, t in _half_stations(sections, n_span):
-        a, b = sections[k], sections[min(k + 1, len(sections) - 1)]
-        k_dir = min(k, len(span_dirs) - 1)
-        e_s = span_dirs[k_dir]
+    for s in spans:
+        k = min(max(np.searchsorted([sec.span for sec in sections], s, side="right") - 1, 0),
+                len(sections) - 2)
+        a, b = sections[k], sections[k + 1]
+        t = (s - a.span) / (b.span - a.span)
+        e_s = span_dirs[k]
         e_n = np.cross(ex, e_s)
         chord = a.chord + t * (b.chord - a.chord)
         twist = math.radians(a.twist_deg + t * (b.twist_deg - a.twist_deg))
-        zc = (1 - t) * cambers[k](xi) + t * cambers[min(k + 1, len(sections) - 1)](xi)
-        le = (roots[k] + t * (roots[min(k + 1, len(roots) - 1)] - roots[k])
+        zc = (1 - t) * cambers[k](xi) + t * cambers[k + 1](xi)
+        le = (roots[k] + t * (roots[k + 1] - roots[k])
               + (a.x_offset + t * (b.x_offset - a.x_offset)) * ex)
         along = xi * math.cos(twist) + zc * math.sin(twist)
         up = -xi * math.sin(twist) + zc * math.cos(twist)
@@ -78,16 +107,41 @@ def surface_grid(surface, n_chord, n_span):
         mirror = grid[:, :0:-1].copy()
         mirror[..., 1] *= -1.0
         grid = np.concatenate([mirror, grid], axis=1)
-    return grid
+    return grid, xi, spans
+
+
+def _deflection_gains(surface, xi, spans, chordwise, normal):
+    """role -> (chord panels, span panels, 3): normal change per radian of deflection."""
+    n_chord, n_half = len(xi) - 1, len(spans) - 1
+    xi_start = xi[:-1]
+    mid = 0.5 * (spans[:-1] + spans[1:])
+    if surface.symmetric:       # columns run port tip -> root -> starboard tip
+        mid = np.concatenate([mid[::-1], mid])
+        side = np.concatenate([-np.ones(n_half), np.ones(n_half)])
+    else:
+        side = np.ones(n_half)
+    tangent = chordwise - np.einsum("ijk,ijk->ij", chordwise, normal)[..., None] * normal
+    tangent /= np.linalg.norm(tangent, axis=-1, keepdims=True)
+
+    gains = {}
+    for control in surface.controls:
+        behind_hinge = xi_start >= 1.0 - control.chord_fraction - 1e-9
+        within = (mid > control.span_from) & (mid < control.span_to)
+        sign = np.array([DEFLECTION_SIGN[control.role](s) for s in side])
+        weight = behind_hinge[:, None] * (within * sign)[None, :]
+        gains[control.role] = (gains.get(control.role, np.zeros((n_chord, len(mid), 3)))
+                               + weight[..., None] * tangent)
+    return gains
 
 
 def build_lattice(geometry, n_chord=8, n_span=16):
     """n_span is the panel count per half of the largest surface; others scale by span."""
     largest = max(s.sections[-1].span - s.sections[0].span for s in geometry.surfaces)
     parts = {name: [] for name in ("A", "B", "C", "D", "te", "cp", "n", "surf")}
+    gains, sizes = [], []
     for index, surface in enumerate(geometry.surfaces):
         extent = surface.sections[-1].span - surface.sections[0].span
-        P = surface_grid(surface, n_chord, max(2, round(n_span * extent / largest)))
+        P, xi, spans = surface_mesh(surface, n_chord, max(2, round(n_span * extent / largest)))
         quarter = P[:-1] + 0.25 * (P[1:] - P[:-1])
         aft = np.concatenate([quarter[1:], P[-1:]], axis=0)
         A, B = quarter[:, :-1], quarter[:, 1:]
@@ -104,6 +158,14 @@ def build_lattice(geometry, n_chord=8, n_span=16):
             parts[key].append(value.reshape(-1, 3))
         parts["te"].append(te.ravel())
         parts["surf"].append(np.full(te.size, index))
+        gains.append({role: gain.reshape(-1, 3) for role, gain in
+                      _deflection_gains(surface, xi, spans, chordwise, normal).items()})
+        sizes.append(te.size)
     cat = {key: np.concatenate(value) for key, value in parts.items()}
+
+    deflection = {}
+    for role in sorted({role for gain in gains for role in gain}):
+        deflection[role] = np.concatenate([gain.get(role, np.zeros((size, 3)))
+                                           for gain, size in zip(gains, sizes)])
     return Lattice(cat["A"], cat["B"], cat["C"], cat["D"], cat["te"], cat["cp"], cat["n"],
-                   cat["surf"])
+                   cat["surf"], deflection)

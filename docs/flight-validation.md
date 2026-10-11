@@ -84,7 +84,9 @@ control power against roll damping.
 
 Needed first:
 
-- Control derivatives in the tool (phase 3).
+- Control derivatives in the tool: done 2026-10-11
+  (`docs/decisions/2026-10-11-control-surfaces.md`). The comparison itself has not been
+  started; this work is paused.
 - Surface deflection per unit command: use about 75% of the +/-30 deg maximum (see above),
   and treat the result as uncertain by at least that assumption.
 - Measured weight and CG, if they can be recovered; otherwise the Mission 1 model values.

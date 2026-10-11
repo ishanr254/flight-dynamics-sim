@@ -65,6 +65,7 @@ python3 -m venv venv && ./venv/bin/pip install -r requirements.txt
 ./venv/bin/python -m cases.cs7_lateral      # CS7 benchmark table + figures in output/
 ./venv/bin/python -m cases.df1_lateral      # DF1 (3 missions) vs XFLR5 eigenvalues
 ./venv/bin/python -m cases.df1_longitudinal # DF1 short period and phugoid vs XFLR5
+./venv/bin/python -m cases.df1_controls     # control derivatives and control responses
 ./venv/bin/python -m src.aircraft.xflr5 LOG --chord C --aircraft OUT.toml  # XFLR5 log -> aircraft file
 # add --spread data/aircraft/df1_mass_distribution.toml for the corrected-inertia version
 ./venv/bin/python -m src.aero.derive data/geometry/df1_m1.toml --aircraft OUT.toml  # geometry -> derivatives
@@ -110,8 +111,13 @@ stability axes, coefficients non-dimensionalized with the same single `l` and â„
 No alpha-dot derivatives. The five-state Ch. 5 course form (altitude, thrust model) is
 deferred, not rejected.
 
-The aircraft file format is documented for users in `docs/aircraft-file.md`; keep it in
-step with `src/aircraft/loader.py`.
+**Controls â€” locked** (2026-10-11): `delta_m` elevator (trailing edge down positive),
+`delta_l` aileron (starboard trailing edge down positive), `delta_n` rudder (trailing edge
+to port positive), all per radian; signs follow the course case studies.
+
+User-facing references: `docs/aircraft-file.md` (keep in step with
+`src/aircraft/loader.py`) and `docs/geometry-file.md` (keep in step with
+`src/aero/geometry.py`).
 
 Data from XFLR5/AVL uses b/2V and c/2V and body-axis forms: it must be converted in
 the aircraft-data layer, never inside the solver.
@@ -141,35 +147,45 @@ the aircraft-data layer, never inside the solver.
 
 ## Status
 
-2026-10-11. Lateral and longitudinal linear dynamics both work end to end: aircraft file
-with validation, state-space, modal analysis, time simulation, reference comparison,
-figures. 92 tests pass.
+2026-10-11. Lateral and longitudinal linear dynamics work end to end, from either supplied
+derivatives or geometry, including control inputs. 107 tests pass.
 
 - **Dynamics code verified** against two independent sources: the CS7 transport (lateral;
   matches the case study's precisely stated values to <1%) and DF1 in three mission
   configurations (lateral and longitudinal; matches XFLR5's eigenvalues to 4 figures).
 - **Derivatives from geometry** (R9) by the built-in vortex lattice in `src/aero`. For
-  DF1, main derivatives are within about 5-10% of XFLR5; lateral modes within about 10%;
-  short period and phugoid frequency within 2%; phugoid damping 20-45% high (drag-driven).
-
-DF1 aircraft files per mission: `df1_m*.toml` (XFLR5 derivatives, for solver
-verification), `df1_m*_distributed.toml` (same, inertia corrected from the design report;
-use for results about the aircraft), `df1_m*_vlm.toml` (derivatives from the built-in
-lattice, XFLR5 inertia).
-
+  DF1, main stability derivatives are within about 5-10% of XFLR5; lateral modes within
+  about 10%; short period and phugoid frequency within 2%; phugoid damping 20-45% high
+  (drag-driven).
+- **Control derivatives** from geometry: all-moving tail within about 2% of XFLR5; real
+  surfaces within 1-15% of the design report's table. Elevator, aileron and rudder
+  responses are simulated for DF1.
 - **Flight data:** one DF1 PX4 log is in `data/flight/`. It has been inventoried but not
   compared with the model: it has no hands-off segments, so it cannot confirm the modes.
   `docs/flight-validation.md` is the living record of this and must be kept honest about
   what has and has not been compared with real data. **Paused** until Ishan flies
   dedicated test manoeuvres; do not build on the existing log in the meantime.
 
+DF1 aircraft files per mission:
+- `df1_m*.toml`: XFLR5 derivatives and inertia. For verifying the solver. No controls.
+- `df1_m*_distributed.toml`: XFLR5 derivatives, inertia corrected from the design report.
+- `df1_m*_vlm.toml`: lattice derivatives with controls, XFLR5 inertia. For comparing
+  aerodynamics with XFLR5.
+- `df1_m*_vlm_distributed.toml`: lattice derivatives with controls, corrected inertia.
+  The tool's own best description of the aircraft; use for control responses.
+
+**Known input problem:** the XFLR5 model's fin is about half the height the design report
+gives (5.24 in vs 10.24 in). If the report is right, DF1's fin-driven results (Dutch roll,
+rudder response) are well off the real aircraft: Dutch-roll frequency 1.17 Hz vs 2.03 Hz.
+See `docs/decisions/2026-10-11-df1-fin-height-discrepancy.md`. Awaiting confirmation of
+the as-built fin before adding a corrected geometry.
+
 Open, in order:
-1. Vortex-lattice phase 3: control derivatives (elevator, aileron, rudder), then control
-   responses. Needs approval. No control inputs are simulated for DF1 yet. This also
-   unlocks the one comparison the flight log can support (response to recorded inputs).
-2. Visualization export (`src/viz`): not started. R1 (animated demo) is the primary
+1. Visualization export (`src/viz`): not started. R1 (animated demo) is the primary
    success criterion.
-3. Vortex-lattice phase 4: product packaging (one installable command, user docs).
+2. Vortex-lattice phase 4: product packaging (one installable command, user docs).
+   Needs approval.
+3. Trim at a chosen speed using the elevator; throttle derivative.
 4. DF1 data: Missions 2 and 3 XFLR5 masses disagree with the design report (see
    `docs/decisions/2026-10-11-df1-mass-distribution.md`).
 5. Scope questions for the planning chat: CS7's long-time figures need `sin(phi)` in the

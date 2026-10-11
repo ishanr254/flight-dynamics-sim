@@ -31,6 +31,15 @@ def summary(d):
         "lateral (per rad, per p*b/2V):       "
         + "  ".join(f"{k} = {d[k]:.4f}" for k in LATERAL),
     ]
+    qS = 0.5 * d["rho"] * d["V"] ** 2 * d["S"]
+    labels = {"delta_m": "elevator", "delta_l": "aileron", "delta_n": "rudder"}
+    for role in d.get("controls", ()):
+        lines.append(
+            f"{labels[role]:8} (per rad, moments on c or b):  "
+            + (f"CL = {-d['Z' + role] / qS:.4f}  Cm = {d['M' + role] / (qS * d['c']):.4f}"
+               if role == "delta_m" else
+               f"CY = {d['Y' + role] / qS:.4f}  Cl = {d['L' + role] / (qS * d['b']):.4f}  "
+               f"Cn = {d['N' + role] / (qS * d['b']):.4f}"))
     return "\n".join(lines)
 
 

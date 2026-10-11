@@ -2,7 +2,7 @@
 
 import math
 import tomllib
-from dataclasses import fields
+from dataclasses import MISSING, fields
 from pathlib import Path
 
 from .model import Aircraft, FlightCondition, LateralCoefficients, LongitudinalCoefficients
@@ -14,9 +14,16 @@ ALWAYS = {
     "inertia": ((), {"A": None, "B": None, "C": None, "E": 0.0}),
     "condition": (("V", "rho"), {"alpha": 0.0, "theta": 0.0}),
 }
+def _split(cls):
+    """(required field names, {optional field name: default}) of a coefficient class."""
+    required = tuple(f.name for f in fields(cls) if f.default is MISSING)
+    return required, {f.name: f.default for f in fields(cls) if f.default is not MISSING}
+
+
+# section -> (required fields, optional fields, inertias it needs)
 MOTION = {
-    "lateral": (tuple(f.name for f in fields(LateralCoefficients)), ("A", "C")),
-    "longitudinal": (tuple(f.name for f in fields(LongitudinalCoefficients)), ("B",)),
+    "lateral": (*_split(LateralCoefficients), ("A", "C")),
+    "longitudinal": (*_split(LongitudinalCoefficients), ("B",)),
 }
 STRICTLY_POSITIVE = (("mass", "m"), ("reference", "S"), ("reference", "l"),
                      ("inertia", "A"), ("inertia", "B"), ("inertia", "C"),
@@ -73,10 +80,10 @@ def load_aircraft(path):
             for section, (required, optional) in ALWAYS.items()}
 
     motions = {}
-    for section, (required, needs_inertia) in MOTION.items():
+    for section, (required, optional, needs_inertia) in MOTION.items():
         if section not in raw:
             continue
-        motions[section] = _read_section(raw, section, required, {}, problems)
+        motions[section] = _read_section(raw, section, required, optional, problems)
         for key in needs_inertia:
             if data["inertia"].get(key) is None:
                 problems.append(f"[inertia] '{key}' is required when [{section}] is given")

@@ -69,6 +69,15 @@ def stability_derivatives(geometry, n_chord=10, n_span=24):
         for load, value in zip(LOADS, slope):
             d[load + motion] = float(value)
 
+    # control derivatives per radian, at the trim condition
+    angle = 0.01
+    for role in solver.lattice.deflection:
+        slope = (solver.loads(base, g.rho, {role: angle})
+                 - solver.loads(base, g.rho, {role: -angle})) / (2.0 * angle)
+        for load, value in zip(LOADS, slope):
+            d[load + role] = float(value)
+    d["controls"] = tuple(solver.lattice.deflection)
+
     per_p, per_q = 2.0 * U / g.b, 2.0 * U / g.c
     alpha = solver.alpha
     Isxx, Iszz, Isxz = to_stability_axes(g.mass.Ixx, g.mass.Izz, g.mass.Ixz, alpha)

@@ -1,13 +1,15 @@
 """Import an XFLR5 plane definition (and its analysis settings) as a geometry file.
 
-    python3 -m src.aero.xflr5_plane PLANE.xml POLAR.xml -o GEOMETRY.toml
+    python3 -m src.aero.xflr5_plane PLANE.xml POLAR.xml -o GEOMETRY.toml [--controls FILE]
 
 The plane XML supplies the lifting surfaces; the polar XML supplies reference dimensions,
-air density, mass, centre of gravity and inertia. This is a convenience for existing XFLR5
-models; geometry files can equally be written by hand.
+air density, mass, centre of gravity and inertia. XFLR5 plane files carry no control
+surfaces; --controls merges them in from a separate TOML file. This is a convenience for
+existing XFLR5 models; geometry files can equally be written by hand.
 """
 
 import argparse
+import tomllib
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -16,14 +18,23 @@ def _floats(text):
     return [float(v) for v in text.replace(",", " ").split()]
 
 
-def geometry_toml(plane_path, polar_path, cd0=0.0):
+def geometry_toml(plane_path, polar_path, cd0=0.0, controls_path=None):
     plane = ET.parse(plane_path).getroot().find("Plane")
     polar = ET.parse(polar_path).getroot().find("Polar")
     inertia = polar.find("Inertia_Value")
     get = lambda node, tag: float(node.find(tag).text)  # noqa: E731
 
+    controls = (tomllib.loads(Path(controls_path).read_text()).get("control", [])
+                if controls_path else [])
+    surface_names = {wing.find("Name").text.strip() for wing in plane.findall("wing")}
+    for control in controls:
+        if control.get("surface") not in surface_names:
+            raise ValueError(f"{controls_path}: control '{control.get('name')}' names surface "
+                             f"{control.get('surface')!r}, which is not in {plane_path}")
+
     lines = [
-        f"# Imported by src.aero.xflr5_plane from {plane_path} and {polar_path}.",
+        f"# Imported by src.aero.xflr5_plane from {plane_path} and {polar_path}."
+        + (f"\n# Control surfaces from {controls_path}." if controls_path else ""),
         "# Axes: x aft, y to starboard, z up. SI units.",
         "",
         f'name = "{plane.find("Name").text.strip()}"',
@@ -71,6 +82,18 @@ def geometry_toml(plane_path, polar_path, cd0=0.0):
                 f"  twist_deg = {get(section, 'Twist')!r}",
                 f'  airfoil = "{section.find("Right_Side_FoilName").text.strip()}"',
             ]
+        spans = [get(section, "y_position") for section in wing.find("Sections")]
+        for control in controls:
+            if control["surface"] != wing.find("Name").text.strip():
+                continue
+            span = [spans[0], spans[-1]] if control["span"] == "full" else control["span"]
+            lines += [
+                "  [[surface.control]]",
+                f'  name = "{control["name"]}"',
+                f'  role = "{control["role"]}"',
+                f"  chord_fraction = {control['chord_fraction']!r}",
+                f"  span = {[float(v) for v in span]!r}",
+            ]
     return "\n".join(lines) + "\n"
 
 
@@ -81,8 +104,10 @@ def main(argv=None):
     parser.add_argument("-o", "--output", required=True)
     parser.add_argument("--cd0", type=float, default=0.0,
                         help="zero-lift drag coefficient to record (default 0)")
+    parser.add_argument("--controls", help="TOML file of control surfaces to merge in")
     args = parser.parse_args(argv)
-    Path(args.output).write_text(geometry_toml(args.plane, args.polar, args.cd0))
+    Path(args.output).write_text(
+        geometry_toml(args.plane, args.polar, args.cd0, args.controls))
 
 
 if __name__ == "__main__":

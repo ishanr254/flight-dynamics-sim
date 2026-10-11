@@ -1,0 +1,34 @@
+# DF1 control surfaces, merged into the geometry files by src.aero.xflr5_plane --controls.
+# The XFLR5 plane files carry no control surfaces, so these come from the 2026 Cornell DBF
+# design report (2026DBF_CORNELLUNIVERSITY_DESIGN_REPORT.pdf).
+#
+# surface: name of the lifting surface the control is on
+# role: delta_m (elevator), delta_l (aileron), delta_n (rudder)
+# chord_fraction: fraction of the local chord behind the hinge
+# span: [from, to] along the surface from its root, metres, or "full"
+
+source = "2026 Cornell DBF design report, Table 5.1.1 (p.29), section 4.4.4 (p.25), three-view (p.42)"
+
+[[control]]
+surface = "Main Wing"
+name = "aileron"
+role = "delta_l"
+chord_fraction = 0.25
+span = [0.3157, 0.5260]
+basis = "Table 5.1.1: 25% chord. Three-view: each aileron 8.28 in wide, starting 10.38 in outboard of the fuselage side (2.05 in from the centreline)"
+
+[[control]]
+surface = "Elevator"
+name = "elevator"
+role = "delta_m"
+chord_fraction = 0.30
+span = "full"
+basis = "Table 5.1.1: 30% chord; section 4.4.4: 100% span"
+
+[[control]]
+surface = "Fin"
+name = "rudder"
+role = "delta_n"
+chord_fraction = 0.30
+span = "full"
+basis = "Table 5.1.1: 30% chord; section 4.4.4: 100% span"

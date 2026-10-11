@@ -45,6 +45,10 @@ class LongitudinalCoefficients:
     Cm_u: float
     Cm_alpha: float
     Cm_q: float
+    # elevator derivatives per radian (trailing edge down positive); zero if not supplied
+    CX_dm: float = 0.0
+    CZ_dm: float = 0.0
+    Cm_dm: float = 0.0
 
 
 @dataclass(frozen=True)

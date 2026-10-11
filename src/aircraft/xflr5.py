@@ -111,6 +111,26 @@ def course_longitudinal(log, chord):
     }
 
 
+def course_controls(source, chord):
+    """Control derivatives of a source as aircraft-file entries (lateral, longitudinal).
+
+    A source carries them as dimensional loads per radian under keys like 'Ydelta_n'.
+    Missing controls come back as zero.
+    """
+    qS = 0.5 * source["rho"] * source["V"] ** 2 * source["S"]
+    lateral = {}
+    for role, tag in (("delta_l", "dl"), ("delta_n", "dn")):
+        lateral[f"CY_{tag}"] = source.get(f"Y{role}", 0.0) / qS
+        lateral[f"Cl_{tag}"] = source.get(f"L{role}", 0.0) / (qS * chord)
+        lateral[f"Cn_{tag}"] = source.get(f"N{role}", 0.0) / (qS * chord)
+    longitudinal = {
+        "CX_dm": source.get("Xdelta_m", 0.0) / qS,
+        "CZ_dm": source.get("Zdelta_m", 0.0) / qS,
+        "Cm_dm": source.get("Mdelta_m", 0.0) / (qS * chord),
+    }
+    return lateral, longitudinal
+
+
 def inertia(log, spread=None):
     """(A, B, C, E) in stability axes: the source's own, or body-axis values plus a spread.
 
@@ -140,7 +160,19 @@ def aircraft_toml(log, chord, source, spread=None, spread_source="",
     c = course_lateral(log, chord)
     A, B, C, E = inertia(log, spread)
     lon = course_longitudinal(log, chord)
-    longitudinal = "\n".join(f"{key} = {value!r}" for key, value in lon.items())
+    lateral_controls, longitudinal_controls = course_controls(log, chord)
+    available = log.get("controls", ())
+    longitudinal = "\n".join(f"{key} = {value!r}" for key, value in
+                             {**lon, **longitudinal_controls}.items())
+    lateral_control_lines = "\n".join(f"{key} = {value!r}"
+                                      for key, value in lateral_controls.items())
+    missing = [name for role, name in (("delta_l", "aileron"), ("delta_n", "rudder"),
+                                       ("delta_m", "elevator")) if role not in available]
+    control_note = (
+        f"# Control derivatives are per radian. Not available from this source: "
+        f"{', '.join(missing)}.\n# For those, zero means \"not available\", not "
+        f"\"no control authority\"." if missing
+        else "# Control derivatives are per radian.")
     name = log["name"] + (" (distributed mass)" if spread else "")
     inertia_note = (
         f"# XFLR5 body-axis inertia plus the component extents in {spread_source}:\n"
@@ -169,17 +201,11 @@ E = {E!r}
 
 [lateral]
 {coefficients}
-# Aileron and rudder derivatives are not available from this source.
-# Zero means "not available", not "no control authority".
-CY_dl = 0.0
-CY_dn = 0.0
-Cl_dl = 0.0
-Cl_dn = 0.0
-Cn_dl = 0.0
-Cn_dn = 0.0
+{control_note}
+{lateral_control_lines}
 
 # Speed derivatives are of the whole force, so CZ_u is about -2*CL at trim.
-# Elevator and throttle derivatives are not part of the file yet.
+# CX_dm, CZ_dm, Cm_dm are the elevator derivatives; throttle has none yet.
 [longitudinal]
 {longitudinal}
 

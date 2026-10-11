@@ -23,6 +23,20 @@ class Section:
     airfoil: str
 
 
+ROLES = ("delta_m", "delta_l", "delta_n")   # elevator, aileron, rudder
+
+
+@dataclass(frozen=True)
+class Control:
+    """A hinged trailing-edge control. Signs: docs/decisions/2026-10-11-control-surfaces.md."""
+
+    name: str
+    role: str
+    chord_fraction: float   # fraction of the local chord behind the hinge
+    span_from: float        # along the surface from its root
+    span_to: float
+
+
 @dataclass(frozen=True)
 class Surface:
     name: str
@@ -31,6 +45,7 @@ class Surface:
     symmetric: bool       # mirrored about the x-z plane
     vertical: bool        # sections run along +z instead of +y (a fin)
     sections: tuple
+    controls: tuple = ()
 
 
 @dataclass(frozen=True)
@@ -127,13 +142,37 @@ def load_geometry(path):
             problems.append(f"{where} needs at least two sections (root and tip)")
         elif any(b_.span <= a.span for a, b_ in zip(sections, sections[1:])):
             problems.append(f"{where} section 'span' values must increase from root to tip")
+        controls = []
+        for ct in st.get("control", []):
+            cname = str(ct.get("name", ct.get("role", "control")))
+            cw = f"{where} control '{cname}'"
+            role = ct.get("role")
+            if role not in ROLES:
+                problems.append(f"{cw} 'role' must be one of {', '.join(ROLES)}, got {role!r}")
+            if role == "delta_l" and not st.get("symmetric", True):
+                problems.append(f"{cw} an aileron needs a symmetric surface")
+            fraction = _number(ct, "chord_fraction", cw, problems, positive=True)
+            if fraction > 1.0:
+                problems.append(f"{cw} 'chord_fraction' must be at most 1, got {fraction:g}")
+            span = ct.get("span")
+            if (not isinstance(span, list) or len(span) != 2
+                    or any(isinstance(v, bool) or not isinstance(v, (int, float))
+                           for v in span) or not span[0] < span[1]):
+                problems.append(f"{cw} 'span' must be [from, to] in metres with from < to")
+                span = [math.nan, math.nan]
+            elif len(sections) >= 2 and (span[0] < sections[0].span - 1e-9
+                                         or span[1] > sections[-1].span + 1e-9):
+                problems.append(f"{cw} 'span' {span} lies outside the surface "
+                                f"({sections[0].span:g} to {sections[-1].span:g} m)")
+            controls.append(Control(cname, str(role), fraction, float(span[0]), float(span[1])))
         surfaces.append(Surface(
             name=name,
             position=_vector(st, "position", where, problems),
             incidence_deg=_number(st, "incidence_deg", where, problems, default=0.0),
             symmetric=bool(st.get("symmetric", True)),
             vertical=bool(st.get("vertical", False)),
-            sections=tuple(sections)))
+            sections=tuple(sections),
+            controls=tuple(controls)))
 
     if problems:
         raise GeometryError(path, problems)

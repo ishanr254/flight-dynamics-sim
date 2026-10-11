@@ -3,7 +3,8 @@
 An aircraft file is a TOML file that holds one aircraft at one flight condition. It is the
 interface between "where the numbers came from" and the solver: the dynamics code reads
 nothing else. Files can be written by hand, converted from an XFLR5 stability log
-(`src.aircraft.xflr5`), or computed from geometry (`src.aero.derive`).
+(`src.aircraft.xflr5`), or computed from geometry (`src.aero.derive`, input described in
+`docs/geometry-file.md`).
 
 Everything is SI, angles in radians. Check a file with:
 
@@ -85,8 +86,8 @@ in a comment: zero then means "not available", and control responses cannot be t
 ## `[longitudinal]`
 
 State `[u, alpha, q, theta]`: change in forward speed (m/s), change in angle of attack,
-pitch rate, change in pitch angle. Controls `[delta_x, delta_m]` (throttle, elevator) are
-reserved; control derivatives are not part of the file yet.
+pitch rate, change in pitch angle. Controls `[delta_x, delta_m]`: throttle and elevator.
+The elevator derivatives below are optional (default zero); throttle has none yet.
 
 Forces are X (forward) and Z (down), in stability axes; M is the pitching moment (nose up).
 Each coefficient is the dimensional derivative made non-dimensional:
@@ -102,13 +103,28 @@ Each coefficient is the dimensional derivative made non-dimensional:
 | `Cm_alpha` | `V M_w / (qS l)` | negative for static stability |
 | `Cm_q` | `V M_q / (qS l^2)` | negative (pitch damping) |
 
+| `CX_dm` | `X_dm / qS` | small | 
+| `CZ_dm` | `Z_dm / qS` | negative (elevator down adds lift) |
+| `Cm_dm` | `M_dm / (qS l)` | negative (elevator down pitches nose down) |
+
 with `qS = 1/2 rho V^2 S`. The speed derivatives are of the whole force, which is why
-`CZ_u` is about `-2 CL` rather than near zero.
+`CZ_u` is about `-2 CL` rather than near zero. The last three are optional and per radian.
+
+## Control sign conventions
+
+| Control | Positive deflection | Sign of the main derivative |
+|---|---|---|
+| `delta_m` elevator | trailing edge down | `Cm_dm < 0` |
+| `delta_l` aileron | starboard trailing edge down, port up | `Cl_dl < 0` (roll to port) |
+| `delta_n` rudder | trailing edge to port | `Cn_dn < 0` (nose to port) |
+
+All control derivatives are per radian of deflection.
 
 Not modelled: derivatives with respect to the rate of change of angle of attack, thrust
 changes with speed, and altitude effects.
 
 ## Where the conventions are decided
 
+- Controls: `docs/decisions/2026-10-11-control-surfaces.md`
 - Lateral: `docs/decisions/2026-10-11-lateral-convention-and-first-benchmark.md`
 - Longitudinal: `docs/decisions/2026-10-11-longitudinal-convention.md`

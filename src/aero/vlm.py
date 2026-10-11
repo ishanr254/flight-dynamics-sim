@@ -70,8 +70,8 @@ class VortexLattice:
         # columns are the stability axes expressed in geometry axes
         self.axes = np.column_stack([-flow, [0.0, 1.0, 0.0],
                                      [math.sin(alpha), 0.0, -math.cos(alpha)]])
-        influence = ring_velocity(lattice.control, lattice.surface, lattice, flow)
-        self._lu = lu_factor(np.einsum("mnk,mk->mn", influence, lattice.normal))
+        self._influence = ring_velocity(lattice.control, lattice.surface, lattice, flow)
+        self._lu = lu_factor(np.einsum("mnk,mk->mn", self._influence, lattice.normal))
 
         # bound segments: every ring's leading edge, and the trailing edge of each ring
         # that is not at the surface trailing edge (there the wake cancels it)
@@ -89,14 +89,27 @@ class VortexLattice:
         rate = self.axes @ np.asarray(state[3:], float)
         return -(velocity + np.cross(rate, points - self.cg))
 
-    def circulation(self, state):
-        rhs = -np.einsum("mk,mk->m", self.relative_wind(self.lattice.control, state),
-                         self.lattice.normal)
-        return lu_solve(self._lu, rhs)
+    def circulation(self, state, deflections=None):
+        """Ring strengths for a motion state and control deflections {role: radians}.
 
-    def loads(self, state, rho=1.0):
+        A deflection rotates the normals of the panels behind the hinge; the lattice and
+        the wake stay where they are.
+        """
+        wind = self.relative_wind(self.lattice.control, state)
+        active = {role: angle for role, angle in (deflections or {}).items() if angle}
+        if not active:
+            return lu_solve(self._lu, -np.einsum("mk,mk->m", wind, self.lattice.normal))
+        normal = self.lattice.normal.copy()
+        for role, angle in active.items():
+            if role not in self.lattice.deflection:
+                raise KeyError(f"the geometry has no control with role '{role}'")
+            normal += angle * self.lattice.deflection[role]
+        matrix = np.einsum("mnk,mk->mn", self._influence, normal)
+        return np.linalg.solve(matrix, -np.einsum("mk,mk->m", wind, normal))
+
+    def loads(self, state, rho=1.0, deflections=None):
         """Force (X, Y, Z) and moment (L, M, N) about the CG, in stability axes."""
-        gamma = self.circulation(state)
+        gamma = self.circulation(state, deflections)
         wind = (self.relative_wind(self._mid, state)
                 + np.einsum("knc,n->kc", self._induced, gamma))
         force = rho * gamma[self._owner, None] * np.cross(wind, self._vector)

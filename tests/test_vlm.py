@@ -4,6 +4,7 @@ XFLR5 tolerances are illustrative, not adopted (docs/requirements.md).
 """
 
 import math
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -140,7 +141,11 @@ def test_df1_longitudinal_modes_from_geometry_against_xflr5(df1, tmp_path):
 
 
 def test_refining_the_mesh_changes_the_answer_less_each_time():
+    """Uniform refinement, so control hinge lines (which fix some panel edges) are removed;
+    tests/test_controls.py checks that adding them back does not move the answer."""
     geometry = load_geometry(DF1)
+    geometry = replace(geometry, surfaces=tuple(replace(s, controls=())
+                                                for s in geometry.surfaces))
     coarse, medium, fine = (stability_derivatives(geometry, *mesh)["CLa"]
                             for mesh in ((4, 8), (6, 12), (8, 16)))
     assert abs(fine - medium) < abs(medium - coarse)

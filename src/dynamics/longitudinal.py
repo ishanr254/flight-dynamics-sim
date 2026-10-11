@@ -33,5 +33,11 @@ def longitudinal_state_space(aircraft, condition):
         [moment * c.Cm_u / V, moment * c.Cm_alpha, moment * rate * c.Cm_q, 0.0],
         [0.0, 0.0, 1.0, 0.0],
     ])
-    # control derivatives are not part of the aircraft file yet
-    return StateSpace(A, np.zeros((4, len(INPUTS))), STATES, INPUTS)
+    # throttle (delta_x) has no derivative in the aircraft file yet
+    B = np.array([
+        [0.0, force * c.CX_dm],
+        [0.0, force * c.CZ_dm / V],
+        [0.0, moment * c.Cm_dm],
+        [0.0, 0.0],
+    ])
+    return StateSpace(A, B, STATES, INPUTS)

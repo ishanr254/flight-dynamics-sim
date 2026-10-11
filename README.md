@@ -41,6 +41,7 @@ python3 -m venv venv && ./venv/bin/pip install -r requirements.txt
 ./venv/bin/python -m cases.df1_lateral        # DF1 lateral modes vs XFLR5
 ./venv/bin/python -m cases.df1_longitudinal   # DF1 short period and phugoid vs XFLR5
 ./venv/bin/python -m cases.df1_vlm            # built-in aerodynamics vs XFLR5
+./venv/bin/python -m cases.df1_controls       # control derivatives and control responses
 ```
 
 To analyse a new aircraft, either write an aircraft file by hand
@@ -51,6 +52,7 @@ derivatives. No solver code changes are needed.
 ## Where things live
 
 - `docs/aircraft-file.md` — the aircraft file format and its conventions
+- `docs/geometry-file.md` — the geometry file format (input to the built-in aerodynamics)
 - `docs/plans/` — approved plans with their checklists
 - `docs/flight-validation.md` — what has and has not been checked against real flight data
 
