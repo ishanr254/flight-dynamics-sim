@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flight Dynamics Simulator — Viewer</title>
+<!--
+  Standalone viewer for flights exported by the simulator (src/viz/export.py).
+  Everything it needs is in this folder: vendor/three.min.js and data/scenarios.js.
+  It makes no network requests, so it runs by opening this file or from any static host.
+  Ported from the Cornell DBF "Flight Dynamics Modes" page; see viz/README.md.
+-->
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0f1520;font-family:'Segoe UI',system-ui,sans-serif;color:#ccd6f6;min-height:100vh;display:flex;flex-direction:column}
+#header{padding:12px 20px;border-bottom:1px solid #1a2a4a;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+#header .cornell{width:10px;height:30px;background:#b31b1b;border-radius:2px}
+#header .title{font-size:15px;font-weight:600;letter-spacing:1px;color:#e8f0ff}
+#header .sub{display:block;font-size:10px;color:#4a6a8a;letter-spacing:2px;margin-top:2px;text-transform:uppercase}
+#picker{margin-left:auto;display:flex;align-items:center;gap:8px}
+#picker label{font-size:9px;color:#4a6a8a;letter-spacing:2px;text-transform:uppercase}
+select{font-size:12px;padding:6px 10px;background:#090e18;border:1px solid #1a3a5a;color:#a0c0e8;font-family:inherit;max-width:60vw}
+#desc{font-size:12px;color:#6a8aaa;padding:8px 20px;border-bottom:1px solid #1a2a4a;line-height:1.45;min-height:32px;background:#090e18}
+#wrap{position:relative;width:100%;flex:1;min-height:440px}
+#view{display:block;width:100%;height:100%}
+.hud{position:absolute;pointer-events:none;font-family:'Courier New',monospace}
+#banner{top:14px;left:50%;transform:translateX(-50%);font-size:14px;font-weight:600;letter-spacing:4px;color:rgba(255,255,255,.88);text-align:center;white-space:nowrap}
+#banner small{display:block;font-size:10px;font-weight:400;color:rgba(255,255,255,.45);letter-spacing:2px;margin-top:4px}
+#telemetry{top:14px;right:16px;text-align:right;font-size:10px;color:rgba(160,190,240,.55);line-height:1.5}
+#telemetry div{margin-bottom:7px}
+#telemetry .v{font-size:15px;font-weight:600;color:rgba(255,255,255,.95);display:block}
+#attitude{position:absolute;bottom:14px;left:14px;width:100px;height:100px}
+#controls-readout{bottom:14px;left:128px;font-size:10px;color:rgba(160,190,240,.6);line-height:1.7}
+#summary{position:absolute;bottom:16px;right:16px;text-align:right;font-size:10px;font-family:'Courier New',monospace;color:rgba(140,170,215,.6);line-height:1.8;max-width:46%}
+#note{position:absolute;top:14px;left:16px;font-size:9px;letter-spacing:2px;font-family:'Courier New',monospace;color:rgba(255,190,60,.75);padding:3px 9px;border:1px solid rgba(255,190,60,.3);background:rgba(255,190,60,.05)}
+#warning{position:absolute;top:44px;left:16px;font-size:9px;letter-spacing:2px;font-family:'Courier New',monospace;color:rgba(255,90,90,.95);padding:3px 9px;border:1px solid rgba(255,90,90,.5);background:rgba(255,60,60,.08);display:none}
+#message{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:14px;letter-spacing:1px;text-align:center;line-height:1.8;color:#ff9090;display:none;max-width:80%}
+#bar{display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding:10px 16px;border-top:1px solid #1a2a4a;background:#090e18}
+.grp{display:flex;flex-direction:column;align-items:center;gap:4px}
+.grp.wide{flex:1;min-width:200px;align-items:stretch}
+.lbl{font-size:9px;color:#4a6a8a;letter-spacing:2px;text-transform:uppercase;text-align:center}
+button{font-size:11px;padding:6px 14px;background:transparent;border:1px solid #1a3a5a;color:#6080a0;cursor:pointer;letter-spacing:.5px;transition:all .15s;font-family:inherit}
+button:hover{background:#0f1830;border-color:#2a4a7a;color:#a0c0e8}
+button.on{background:#1a0505;color:#ff6060;border-color:#6a1010}
+input[type=range]{accent-color:#b31b1b;cursor:pointer}
+#rate{width:110px}
+#scrub{width:100%}
+#footer{padding:8px 16px;border-top:1px solid #1a2a4a;font-size:10px;color:#3a5070;letter-spacing:1px;line-height:1.6}
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div class="cornell"></div>
+  <div>
+    <span class="title">Flight Dynamics Simulator</span>
+    <span class="sub" id="aircraft-name">viewer</span>
+  </div>
+  <div id="picker">
+    <label for="scenario">Scenario</label>
+    <select id="scenario"></select>
+  </div>
+</div>
+<div id="desc"></div>
+
+<div id="wrap">
+  <canvas id="view"></canvas>
+  <div class="hud" id="banner"></div>
+  <div class="hud" id="telemetry">
+    <div>SPEED<span class="v" id="t-speed"></span></div>
+    <div>ALTITUDE<span class="v" id="t-alt"></span></div>
+    <div>BANK<span class="v" id="t-bank"></span></div>
+    <div>LOAD FACTOR<span class="v" id="t-n"></span></div>
+    <div>TIME<span class="v" id="t-time"></span></div>
+  </div>
+  <canvas id="attitude"></canvas>
+  <div class="hud" id="controls-readout"></div>
+  <div id="summary"></div>
+  <div id="note"></div>
+  <div id="warning">OUTSIDE THE MODEL'S VALID RANGE</div>
+  <div id="message"></div>
+</div>
+
+<div id="bar">
+  <div class="grp">
+    <span class="lbl">Playback</span>
+    <div style="display:flex;gap:5px">
+      <button id="play">Pause</button>
+      <button id="restart">↺ Restart</button>
+    </div>
+  </div>
+  <div class="grp">
+    <span class="lbl">Speed <span id="rate-value">1×</span></span>
+    <input type="range" id="rate" min="-2" max="3" step="0.25" value="0">
+  </div>
+  <div class="grp wide">
+    <span class="lbl">Time</span>
+    <input type="range" id="scrub" min="0" max="1" step="0.01" value="0">
+  </div>
+  <div class="grp">
+    <span class="lbl">Camera</span>
+    <div style="display:flex;gap:5px">
+      <button data-camera="chase" class="on">Chase</button>
+      <button data-camera="tower">Tower</button>
+      <button data-camera="top">Top</button>
+      <button data-camera="orbit">Orbit</button>
+    </div>
+  </div>
+</div>
+
+<div id="footer">Motion computed by the simulator's nonlinear flight model and exported for playback; this page only plays it back. The aircraft is drawn larger than life so it can be seen.</div>
+
+<script src="vendor/three.min.js"></script>
+<script src="data/scenarios.js"></script>
+<script>
+(function(){
+'use strict';
+const DEG=180/Math.PI;
+const $=id=>document.getElementById(id);
+const scenarios=window.FD_SCENARIOS||[];
+
+if(typeof THREE==='undefined'||!scenarios.length){
+  const m=$('message');
+  m.textContent=typeof THREE==='undefined'
+    ?'Could not load vendor/three.min.js. Keep the viz folder together.'
+    :'No scenarios found. Generate data/scenarios.js with: python3 -m cases.df1_course';
+  m.style.display='block';
+  return;
+}
+
+/* ── RENDERER AND SCENE ── */
+const wrap=$('wrap');
+function viewHeight(){ return Math.max(440, window.innerHeight-250); }
+let renderer;
+try{ renderer=new THREE.WebGLRenderer({canvas:$('view'),antialias:true}); }
+catch(error){
+  const m=$('message');
+  m.textContent='This browser could not start WebGL, which the 3D view needs.';
+  m.style.display='block';
+  return;
+}
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x060d18);
+scene.fog=new THREE.FogExp2(0x060d18,.0007);
+const camera=new THREE.PerspectiveCamera(52,1,.5,6000);
+function resize(){
+  const w=wrap.offsetWidth, h=viewHeight();
+  wrap.style.height=h+'px';
+  renderer.setSize(w,h);
+  camera.aspect=w/h; camera.updateProjectionMatrix();
+}
+resize(); window.addEventListener('resize',resize);
+
+scene.add(new THREE.AmbientLight(0x2a3d6a,1.4));
+const sun=new THREE.DirectionalLight(0xfff2e0,2.8); sun.position.set(300,600,200); scene.add(sun);
+const fill=new THREE.DirectionalLight(0x2255aa,.6); fill.position.set(-200,100,-300); scene.add(fill);
+const groundMesh=new THREE.Mesh(new THREE.PlaneGeometry(4000,4000),
+  new THREE.MeshBasicMaterial({color:0x0a1626,depthWrite:false}));
+groundMesh.rotateX(-Math.PI/2); groundMesh.renderOrder=-2; scene.add(groundMesh);
+const grid=new THREE.GridHelper(4000,160,0x1c3a66,0x12284a);   // 25 m squares
+grid.position.y=.02; scene.add(grid);
+
+/* Earth axes are north-east-down. Scene axes: x = east, y = up, z = south, which keeps
+   the scene right-handed so that a right turn looks like a right turn. */
+function toScene(north,east,altitude,out){ return out.set(east,altitude,-north); }
+
+/* ── AIRCRAFT MODEL (nose along local +z, starboard along local -x) ── */
+function makeAircraft(){
+  const g=new THREE.Group();
+  const body=new THREE.MeshPhongMaterial({color:0xdddad3,specular:0x555544,shininess:45});
+  const surf=new THREE.MeshPhongMaterial({color:0xc6c3bc,specular:0x333322,shininess:12});
+  const red=new THREE.MeshPhongMaterial({color:0xb31b1b,specular:0x440000,shininess:70});
+  const disc=new THREE.MeshBasicMaterial({color:0x888888,transparent:true,opacity:.15,side:THREE.DoubleSide});
+  const fuselage=new THREE.Mesh(new THREE.CylinderGeometry(.07,.125,1.65,12),body);
+  fuselage.rotation.x=Math.PI/2; g.add(fuselage);
+  const nose=new THREE.Mesh(new THREE.ConeGeometry(.07,.32,12),body);
+  nose.rotation.x=Math.PI/2; nose.position.z=.98; g.add(nose);
+  [-1,1].forEach(s=>{
+    const wing=new THREE.Mesh(new THREE.BoxGeometry(.92,.028,.38),surf);
+    wing.position.set(s*.54,-.05,.1); g.add(wing);
+    const tail=new THREE.Mesh(new THREE.BoxGeometry(.37,.022,.2),surf);
+    tail.position.set(s*.25,0,-.74); g.add(tail);
+  });
+  const tip=new THREE.Mesh(new THREE.BoxGeometry(.12,.03,.38),red);   // starboard wingtip
+  tip.position.set(-.94,-.05,.1); g.add(tip);
+  const fin=new THREE.Mesh(new THREE.BoxGeometry(.022,.32,.22),surf);
+  fin.position.set(0,.16,-.7); g.add(fin);
+  const prop=new THREE.Mesh(new THREE.CircleGeometry(.22,20),disc);
+  prop.position.z=1.12; g.add(prop);
+  [.24,.84].forEach(z=>{
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(.088,.011,6,22),red);
+    ring.rotation.x=Math.PI/2; ring.position.z=z; g.add(ring);
+  });
+  return g;
+}
+const MODEL_SPAN=2.0;                 // wingspan of the model above, in its own units
+const aircraft=makeAircraft(); scene.add(aircraft);
+
+/* ── PATH LINES AND GROUND MARKINGS (rebuilt per scenario) ── */
+const dynamic=new THREE.Group(); scene.add(dynamic);
+let flown=null, dropGeometry=null, dropPositions=null;
+function line(points,color,opacity){
+  const geometry=new THREE.BufferGeometry().setFromPoints(points);
+  return new THREE.Line(geometry,new THREE.LineBasicMaterial({color,transparent:true,opacity}));
+}
+function strip(north0,north1,east0,east1,color,opacity){
+  // ground markings are drawn over the ground without depth testing against it
+  const mesh=new THREE.Mesh(new THREE.PlaneGeometry(Math.abs(east1-east0),Math.abs(north1-north0)),
+    new THREE.MeshBasicMaterial({color,transparent:true,opacity,depthWrite:false}));
+  mesh.rotation.x=-Math.PI/2; mesh.renderOrder=-1;
+  mesh.position.set((east0+east1)/2,.1,-(north0+north1)/2);
+  return mesh;
+}
+
+/* ── PLAYBACK STATE ── */
+let S=null, time=0, playing=true, rate=1, cameraMode='chase', orbit=0, unit=1;
+const position=new THREE.Vector3(), forward=new THREE.Vector3(), tmp=new THREE.Vector3();
+const xAxis=new THREE.Vector3(), yAxis=new THREE.Vector3(), zAxis=new THREE.Vector3();
+const basis=new THREE.Matrix4();
+const now={};      // interpolated sample
+
+function load(index){
+  S=scenarios[index];
+  const c=S.columns, n=c.north.length;
+  time=0; playing=true; orbit=0;
+  $('play').textContent='Pause';
+  $('desc').textContent=S.description;
+  $('aircraft-name').textContent=S.group;
+  $('scrub').max=S.duration; $('scrub').value=0;
+  $('summary').innerHTML=S.summary.map(s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;')).join('<br>');
+
+  const exaggeration=S.group==='Course'?10:4;
+  unit=S.span*exaggeration;
+  aircraft.scale.setScalar(unit/MODEL_SPAN);
+  $('note').textContent='AIRCRAFT DRAWN '+exaggeration+'× SIZE';
+
+  while(dynamic.children.length){
+    const child=dynamic.children.pop();
+    child.geometry.dispose(); child.material.dispose();
+  }
+  const path=[], shadow=[];
+  for(let i=0;i<n;i++){
+    path.push(toScene(c.north[i],c.east[i],c.altitude[i],new THREE.Vector3()));
+    shadow.push(new THREE.Vector3(c.east[i],.06,-c.north[i]));
+  }
+  dynamic.add(line(path,0xa03030,.5));            // whole flight, faint
+  flown=line(path,0xff4040,.95); dynamic.add(flown);   // flown so far, bright
+  dynamic.add(line(shadow,0x5a1010,.5));
+  dropPositions=new Float32Array(6);
+  dropGeometry=new THREE.BufferGeometry();
+  dropGeometry.setAttribute('position',new THREE.BufferAttribute(dropPositions,3));
+  dynamic.add(new THREE.Line(dropGeometry,new THREE.LineBasicMaterial({color:0x2a5aa0,transparent:true,opacity:.6})));
+
+  const g=S.ground||{};
+  if(g.half_length){
+    const far=(g.downwind_east||0), lo=Math.min(0,far)-40, hi=Math.max(0,far)+110;
+    dynamic.add(strip(-85,85,-6,6,0x55627a,.95));                      // runway
+    dynamic.add(strip(-1,1,lo,hi,0xffffff,.9));                        // start/finish line
+    [-g.half_length,g.half_length].forEach(end=>{                      // ends of the straight
+      for(let e=lo;e<hi;e+=12) dynamic.add(strip(end-.7,end+.7,e,e+6,0xd04040,.9));
+    });
+  }
+  S.bounds={n0:Math.min(...c.north),n1:Math.max(...c.north),e0:Math.min(...c.east),e1:Math.max(...c.east)};
+}
+
+function sample(t){
+  const c=S.columns, last=c.north.length-1;
+  const x=Math.min(Math.max(t*S.rate,0),last), i=Math.min(Math.floor(x),last-1), f=x-i;
+  for(const key in c) now[key]=c[key][i]+(c[key][i+1]-c[key][i])*f;
+  // shortest-path interpolation of the attitude quaternion
+  const dot=c.q0[i]*c.q0[i+1]+c.q1[i]*c.q1[i+1]+c.q2[i]*c.q2[i+1]+c.q3[i]*c.q3[i+1];
+  const s=dot<0?-1:1;
+  let q0=c.q0[i]+(s*c.q0[i+1]-c.q0[i])*f, q1=c.q1[i]+(s*c.q1[i+1]-c.q1[i])*f,
+      q2=c.q2[i]+(s*c.q2[i+1]-c.q2[i])*f, q3=c.q3[i]+(s*c.q3[i+1]-c.q3[i])*f;
+  const norm=Math.hypot(q0,q1,q2,q3);
+  now.q0=q0/norm; now.q1=q1/norm; now.q2=q2/norm; now.q3=q3/norm;
+  now.valid=c.valid[Math.round(x)];
+  now.index=i;
+}
+
+function placeAircraft(){
+  const {q0,q1,q2,q3}=now;
+  // body axes (nose, starboard, down) in north-east-down, then into scene axes
+  const nose=[1-2*(q2*q2+q3*q3), 2*(q1*q2+q0*q3), 2*(q1*q3-q0*q2)];
+  const right=[2*(q1*q2-q0*q3), 1-2*(q1*q1+q3*q3), 2*(q2*q3+q0*q1)];
+  const down=[2*(q1*q3+q0*q2), 2*(q2*q3-q0*q1), 1-2*(q1*q1+q2*q2)];
+  zAxis.set(nose[1],-nose[2],-nose[0]);
+  xAxis.set(-right[1],right[2],right[0]);
+  yAxis.set(-down[1],down[2],down[0]);
+  aircraft.quaternion.setFromRotationMatrix(basis.makeBasis(xAxis,yAxis,zAxis));
+  toScene(now.north,now.east,now.altitude,position);
+  aircraft.position.copy(position);
+  forward.set(Math.sin(now.psi),0,-Math.cos(now.psi));
+  flown.geometry.setDrawRange(0,now.index+2);
+  dropPositions[0]=position.x; dropPositions[1]=position.y; dropPositions[2]=position.z;
+  dropPositions[3]=position.x; dropPositions[4]=.06; dropPositions[5]=position.z;
+  dropGeometry.attributes.position.needsUpdate=true;
+}
+
+function placeCamera(dt,snap){
+  camera.up.set(0,1,0);
+  if(cameraMode==='chase'){
+    tmp.copy(position).addScaledVector(forward,-4.2*unit); tmp.y+=1.4*unit;
+    camera.position.lerp(tmp,snap?1:.09);
+    camera.lookAt(position.x,position.y+.2*unit,position.z);
+  } else if(cameraMode==='tower'){
+    camera.position.set(-45,2.5,0);            // a pilot standing west of the start line
+    camera.lookAt(position);
+  } else if(cameraMode==='top'){
+    const b=S.bounds, cn=(b.n0+b.n1)/2, ce=(b.e0+b.e1)/2;
+    const half=Math.tan(camera.fov/2/DEG);
+    const height=1.12*Math.max((b.e1-b.e0+60)/2/(half*camera.aspect),(b.n1-b.n0+60)/2/half);
+    camera.position.set(ce,height,-cn);
+    camera.up.set(1,0,0);                      // upwind (north) to the left, as in the rules figure
+    camera.lookAt(ce,0,-cn);
+  } else {
+    orbit+=dt*.2;
+    camera.position.set(position.x+Math.sin(orbit)*9*unit,position.y+5*unit,position.z+Math.cos(orbit)*9*unit);
+    camera.lookAt(position);
+  }
+}
+
+/* ── ATTITUDE INDICATOR ── */
+const ind=$('attitude'), ix=ind.getContext('2d'); ind.width=100; ind.height=100;
+function drawBank(deg){
+  const cx=50, cy=50, r=42;
+  ix.clearRect(0,0,100,100);
+  ix.beginPath(); ix.arc(cx,cy,r,0,Math.PI*2);
+  ix.strokeStyle='rgba(25,55,120,.7)'; ix.lineWidth=1.3; ix.stroke();
+  [0,10,20,30,45,60].forEach(d=>{
+    (d===0?[0]:[-d,d]).forEach(a=>{
+      const rad=(a-90)/DEG, len=d%30===0?7:4;
+      ix.beginPath();
+      ix.moveTo(cx+(r-1)*Math.cos(rad),cy+(r-1)*Math.sin(rad));
+      ix.lineTo(cx+(r-1-len)*Math.cos(rad),cy+(r-1-len)*Math.sin(rad));
+      ix.strokeStyle='rgba(50,90,170,.5)'; ix.lineWidth=d%30===0?1.2:.7; ix.stroke();
+    });
+  });
+  ix.save(); ix.translate(cx,cy); ix.rotate(-deg/DEG);          // horizon tilts opposite to the bank
+  ix.beginPath(); ix.moveTo(-r+6,0); ix.lineTo(r-6,0);
+  ix.strokeStyle='rgba(80,150,230,.85)'; ix.lineWidth=1.3; ix.stroke();
+  ix.restore();
+  ix.strokeStyle='rgba(200,210,220,.9)'; ix.lineWidth=2;
+  ix.beginPath();
+  ix.moveTo(cx-16,cy); ix.lineTo(cx-5,cy); ix.moveTo(cx+5,cy); ix.lineTo(cx+16,cy);
+  ix.moveTo(cx,cy-3); ix.lineTo(cx,cy+3); ix.stroke();
+  ix.fillStyle=Math.abs(deg)>70?'rgba(255,90,90,.95)':Math.abs(deg)>45?'rgba(255,185,50,.9)':'rgba(100,220,145,.9)';
+  ix.font='bold 11px monospace'; ix.textAlign='center';
+  ix.fillText('φ = '+(deg>=0?'+':'')+deg.toFixed(0)+'°',cx,97);
+}
+
+/* ── READOUTS ── */
+function signed(v,digits){ return (v>=0?'+':'')+v.toFixed(digits); }
+function readouts(){
+  let label='';
+  for(const [t,text] of S.events){ if(t<=time+1e-6) label=text; else break; }
+  $('banner').innerHTML=S.title.toUpperCase().replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    +'<small>'+label.toUpperCase()+'</small>';
+  $('t-speed').textContent=now.V.toFixed(1)+' m/s';
+  $('t-alt').textContent=now.altitude.toFixed(1)+' m';
+  $('t-bank').textContent=signed(now.phi*DEG,0)+'°';
+  $('t-n').textContent=now.load_factor.toFixed(2)+' g';
+  $('t-time').textContent=time.toFixed(1)+' / '+S.duration.toFixed(1)+' s';
+  $('controls-readout').innerHTML='ELEVATOR '+signed(now.delta_m*DEG,1)+'°<br>AILERON&nbsp; '
+    +signed(now.delta_l*DEG,1)+'°<br>RUDDER&nbsp;&nbsp; '+signed(now.delta_n*DEG,1)
+    +'°<br>THRUST&nbsp;&nbsp; '+now.thrust.toFixed(1)+' N';
+  $('warning').style.display=now.valid?'none':'block';
+  drawBank(now.phi*DEG);
+  $('scrub').value=time;
+}
+
+/* ── CONTROLS ── */
+const picker=$('scenario');
+const groups={};
+scenarios.forEach((s,i)=>{
+  if(!groups[s.group]){ groups[s.group]=document.createElement('optgroup'); groups[s.group].label=s.group; picker.appendChild(groups[s.group]); }
+  const option=document.createElement('option'); option.value=i; option.textContent=s.title;
+  groups[s.group].appendChild(option);
+});
+picker.addEventListener('change',()=>{ load(+picker.value); snapNext=true; });
+$('play').addEventListener('click',()=>{
+  if(!playing&&time>=S.duration) time=0;
+  playing=!playing; $('play').textContent=playing?'Pause':'Play';
+});
+$('restart').addEventListener('click',()=>{ time=0; playing=true; $('play').textContent='Pause'; snapNext=true; });
+$('rate').addEventListener('input',function(){
+  rate=Math.pow(2,parseFloat(this.value));
+  $('rate-value').textContent=(rate>=1?rate.toFixed(rate%1?1:0):rate.toFixed(2))+'×';
+});
+$('scrub').addEventListener('input',function(){ time=parseFloat(this.value); snapNext=true; });
+document.querySelectorAll('[data-camera]').forEach(button=>{
+  button.addEventListener('click',()=>{
+    cameraMode=button.dataset.camera; snapNext=true;
+    document.querySelectorAll('[data-camera]').forEach(b=>b.classList.toggle('on',b===button));
+  });
+});
+
+/* ── MAIN LOOP ── */
+let snapNext=true;
+const clock=new THREE.Clock();
+load(0);
+function frame(){
+  requestAnimationFrame(frame);
+  const dt=Math.min(clock.getDelta(),.05);
+  if(playing){
+    time+=dt*rate;
+    if(time>=S.duration){ time=S.duration; playing=false; $('play').textContent='Replay'; }
+  }
+  sample(time); placeAircraft(); placeCamera(dt,snapNext); readouts();
+  snapNext=false;
+  renderer.render(scene,camera);
+}
+frame();
+
+/* For automated checks: jump to a time and camera without waiting for playback. */
+window.fdViewer={
+  seek(t){ time=Math.min(Math.max(t,0),S.duration); playing=false; $('play').textContent='Play'; snapNext=true; },
+  camera(mode){ const b=document.querySelector('[data-camera="'+mode+'"]'); if(b) b.click(); },
+  state(){ return {time,playing,scenario:S.id,camera:cameraMode,sample:Object.assign({},now)}; }
+};
+})();
+</script>
+</body>
+</html>

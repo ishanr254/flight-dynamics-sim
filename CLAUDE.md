@@ -28,16 +28,19 @@ src/
   aircraft/     # Aircraft data class, loader, validation (R6)
   dynamics/     # state-space construction (A, B matrices), conventions
   analysis/     # modal/eigen analysis, mode classification
-  simulate/     # time-domain integration (scipy.integrate.solve_ivp)
-  viz/          # exports time-history JSON for the visualizer
+  simulate/     # linear responses; nonlinear 6-DOF model; course autopilot
+  viz/          # exports flights for the web viewer
   verify/       # benchmark comparison, reference cases (R3-R5)
   aero/         # geometry -> stability derivatives (built-in vortex lattice, R9)
   analyze.py    # generic entry point: modal analysis of any aircraft file
 cases/          # aircraft-specific scenarios and figures (never imported by src/)
+viz/            # standalone web viewer (index.html, vendor/, data/)
 data/
   aircraft/     # per-aircraft data files (TOML)
   geometry/     # geometry + mass files, input to src.aero
   airfoils/     # Selig .dat coordinates (NACA 4-digit sections are built in)
+  courses/      # course layouts and flight limits for the autopilot
+  flight/       # flight logs
   reference/    # benchmark reference values, with how each was obtained
 tests/
 docs/
@@ -66,6 +69,8 @@ python3 -m venv venv && ./venv/bin/pip install -r requirements.txt
 ./venv/bin/python -m cases.df1_lateral      # DF1 (3 missions) vs XFLR5 eigenvalues
 ./venv/bin/python -m cases.df1_longitudinal # DF1 short period and phugoid vs XFLR5
 ./venv/bin/python -m cases.df1_controls     # control derivatives and control responses
+./venv/bin/python -m cases.df1_course       # fly the competition course; exports viz/data/scenarios.js
+open viz/index.html                          # the viewer (no server needed)
 ./venv/bin/python -m src.aircraft.xflr5 LOG --chord C --aircraft OUT.toml  # XFLR5 log -> aircraft file
 # add --spread data/aircraft/df1_mass_distribution.toml for the corrected-inertia version
 ./venv/bin/python -m src.aero.derive data/geometry/df1_m1.toml --aircraft OUT.toml  # geometry -> derivatives
@@ -73,30 +78,20 @@ python3 -m venv venv && ./venv/bin/pip install -r requirements.txt
 ./venv/bin/python -m cases.df1_flight_log   # inventory of the DF1 flight log (no model comparison yet)
 ```
 
-## Visualization plan
+## Visualization
 
-Start from the existing `flight-dynamics-visual` page (sibling repo, same GitHub
-folder) rather than building a new renderer — copied into this repo when that phase
-starts, per the standalone rule above. It's a single static `index.html` —
-vanilla JS, Three.js r128 via CDN, no build step, no server. It already has: a
-generic Three.js scene, procedural low-poly aircraft mesh, chase/orbit camera, a
-trail buffer, an HTML/CSS HUD, and a hand-drawn 2D canvas attitude indicator — all
-already state-agnostic (they just consume px/py/pz/phi/theta/psi each frame and
-don't care where those numbers came from).
+The viewer lives in `viz/` in this repo: one static page, vanilla JS, a vendored copy of
+Three.js r128, no build step, no server, no network requests. It must stay that way: it
+has to work by opening `viz/index.html` from disk, with no dependence on another repo, on
+any AI assistant, or on an internet connection. `tests/test_viz_export.py` enforces this.
 
-What actually needs to change: right now, `phys()` computes each of 5 canonical
-DF1 modes from hardcoded closed-form formulas (DF1's actual eigenvalues typed in
-as literal constants), evaluated live every frame — it doesn't read any external
-data. Replace `phys()` with a loader that reads an exported JSON time-history
-(`{t, x, y, z, phi, theta, psi}` samples, ~30-60 samples/sec of playback time —
-not every solver step) and interpolates at playback time. The five-mode-tab /
-stable-unstable-toggle UI needs to become an aircraft/scenario picker — that's the
-real rewrite (~30% of the file), not the render engine.
+It does no physics. The simulator exports flights (`src/viz/export.py`) to
+`viz/data/scenarios.js`, and the page plays them back. Its main purpose is to show the
+aircraft flying the competition course; a second mode for extreme manoeuvres is planned.
+It was ported from the sibling `flight-dynamics-visual` page; see `viz/README.md`.
 
-Performance is not expected to be a real constraint. The current scene is a
-handful of low-poly primitives and one polyline trail — WebGL/Three.js handles far
-more complex scenes than this at 60fps easily. Don't spend time on a performance
-investigation here unless something concrete shows otherwise.
+Published by GitHub Pages from the repo root, so the viewer is at
+`https://ishanr254.github.io/flight-dynamics-sim/viz/`.
 
 ## Conventions
 
@@ -147,8 +142,9 @@ the aircraft-data layer, never inside the solver.
 
 ## Status
 
-2026-10-11. Lateral and longitudinal linear dynamics work end to end, from either supplied
-derivatives or geometry, including control inputs. 107 tests pass.
+2026-10-11. Linear dynamics (lateral and longitudinal), aerodynamics from geometry,
+control derivatives, a nonlinear 6-DOF model with a course autopilot, and a standalone web
+viewer are all in place. 134 tests pass.
 
 - **Dynamics code verified** against two independent sources: the CS7 transport (lateral;
   matches the case study's precisely stated values to <1%) and DF1 in three mission
@@ -156,10 +152,13 @@ derivatives or geometry, including control inputs. 107 tests pass.
 - **Derivatives from geometry** (R9) by the built-in vortex lattice in `src/aero`. For
   DF1, main stability derivatives are within about 5-10% of XFLR5; lateral modes within
   about 10%; short period and phugoid frequency within 2%; phugoid damping 20-45% high
-  (drag-driven).
-- **Control derivatives** from geometry: all-moving tail within about 2% of XFLR5; real
-  surfaces within 1-15% of the design report's table. Elevator, aileron and rudder
-  responses are simulated for DF1.
+  (drag-driven). Control derivatives: all-moving tail within about 2% of XFLR5; real
+  surfaces within 1-15% of the design report's table.
+- **Nonlinear model** (R10): linearizing it returns the linear modes to 1e-9. DF1
+  Mission 1 flies three laps of the DBF course at 27.9 m/s in 44.4 s per lap, 61 deg bank,
+  load factor 2.08, never leaving the model's valid range. The lap time follows from the
+  chosen speed and load-factor limit; it is not a competition prediction.
+- **Viewer** (`viz/`): plays the course flight with chase, tower, top and orbit cameras.
 - **Flight data:** one DF1 PX4 log is in `data/flight/`. It has been inventoried but not
   compared with the model: it has no hands-off segments, so it cannot confirm the modes.
   `docs/flight-validation.md` is the living record of this and must be kept honest about
@@ -172,21 +171,23 @@ DF1 aircraft files per mission:
 - `df1_m*_vlm.toml`: lattice derivatives with controls, XFLR5 inertia. For comparing
   aerodynamics with XFLR5.
 - `df1_m*_vlm_distributed.toml`: lattice derivatives with controls, corrected inertia.
-  The tool's own best description of the aircraft; use for control responses.
+  The tool's own best description of the aircraft; used for control responses and the
+  course flight.
 
 **Known input problem:** the XFLR5 model's fin is about half the height the design report
-gives (5.24 in vs 10.24 in). If the report is right, DF1's fin-driven results (Dutch roll,
-rudder response) are well off the real aircraft: Dutch-roll frequency 1.17 Hz vs 2.03 Hz.
-See `docs/decisions/2026-10-11-df1-fin-height-discrepancy.md`. Awaiting confirmation of
-the as-built fin before adding a corrected geometry.
+gives (5.24 in vs 10.24 in). Ishan has said to leave it for now. If the report is right,
+DF1's fin-driven results (Dutch roll, rudder response) are well off the real aircraft.
+See `docs/decisions/2026-10-11-df1-fin-height-discrepancy.md`.
+
+**The repository is public** (Ishan's choice, 2026-10-11) and Pages serves the whole repo,
+including `docs/courseNotes/` (course notes and case-study solutions) and the flight log.
+He has said he will deal with that later; do not add further third-party material.
 
 Open, in order:
-1. Visualization export (`src/viz`): not started. R1 (animated demo) is the primary
-   success criterion.
-2. Vortex-lattice phase 4: product packaging (one installable command, user docs).
-   Needs approval.
-3. Trim at a chosen speed using the elevator; throttle derivative.
-4. DF1 data: Missions 2 and 3 XFLR5 masses disagree with the design report (see
-   `docs/decisions/2026-10-11-df1-mass-distribution.md`).
-5. Scope questions for the planning chat: CS7's long-time figures need `sin(phi)` in the
-   gravity term; the five-state course longitudinal form.
+1. Stage 4 of `docs/plans/2026-10-11-course-flight-and-visualizer.md`: manoeuvre mode
+   (large scripted inputs), scenario picker with natural modes and the second aircraft.
+2. Stage 5: publishing details and user documentation; then vortex-lattice phase 4
+   (product packaging: one installable command).
+3. Trim at a chosen speed using the elevator; throttle derivative; thrust lapse; wind.
+4. DF1 data: Missions 2 and 3 XFLR5 masses disagree with the design report.
+5. Scope question still open: the five-state course longitudinal form.

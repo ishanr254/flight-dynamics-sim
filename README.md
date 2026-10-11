@@ -42,6 +42,9 @@ python3 -m venv venv && ./venv/bin/pip install -r requirements.txt
 ./venv/bin/python -m cases.df1_longitudinal   # DF1 short period and phugoid vs XFLR5
 ./venv/bin/python -m cases.df1_vlm            # built-in aerodynamics vs XFLR5
 ./venv/bin/python -m cases.df1_controls       # control derivatives and control responses
+./venv/bin/python -m cases.df1_course         # fly the competition course and export it
+
+# watch the flight: open viz/index.html in a browser (no server needed)
 ```
 
 To analyse a new aircraft, either write an aircraft file by hand
@@ -51,6 +54,7 @@ derivatives. No solver code changes are needed.
 
 ## Where things live
 
+- `viz/` — the standalone web viewer (`viz/README.md`)
 - `docs/aircraft-file.md` — the aircraft file format and its conventions
 - `docs/geometry-file.md` — the geometry file format (input to the built-in aerodynamics)
 - `docs/plans/` — approved plans with their checklists

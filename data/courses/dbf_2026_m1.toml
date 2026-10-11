@@ -1,0 +1,21 @@
+# AIAA DBF 2025-26 competition flight pattern, Mission 1 (three laps, no payload).
+# Layout: 2026 Cornell DBF design report, Figure 3.1.1 (p.7): from the start line 500 ft
+# upwind, a 180 deg turn, 1000 ft downwind with a 360 deg turn at mid-leg, a 180 deg turn,
+# and 500 ft back to the start line. The figure shows the pattern turns one way and the
+# 360 deg turn the other way, on the side away from the runway.
+
+name = "AIAA DBF 2025-26 course, Mission 1"
+source = "2026 Cornell DBF design report, Figure 3.1.1 and section 3.1.3"
+
+[pattern]
+half_length = 152.4          # m (500 ft): start line to each end of the straight
+turn_direction = "right"     # the two 180 deg turns, as drawn in the figure
+full_turn = true             # 360 deg turn at mid-downwind, opposite to turn_direction
+laps = 3                     # Mission 1
+
+[flight]
+speed = 27.94                # m/s; the aircraft file's trim speed (report cruise: 90.88 ft/s = 27.70 m/s)
+altitude = 30.0              # m above the field; not specified by the rules, chosen here
+load_factor_limit = 2.0      # the design report's "standard banked turn" (section 4.4.5)
+thrust_max = 35.0            # N; about the report's best static thrust (3.8 kgf). No lapse with speed is modelled
+deflection_max_deg = 30.0    # design report section 4.4.4
